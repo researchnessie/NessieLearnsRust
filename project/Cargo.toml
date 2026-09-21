@@ -1,0 +1,11 @@
+[package]
+name = "project"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fltk = "^1.5"
+rsautogui = "0.2.2"
+arboard = "3.6.1"
+walkdir = "2.5.0"
+image = "0.25.10"
