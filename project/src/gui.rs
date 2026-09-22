@@ -1,6 +1,7 @@
 //Import modules
 use walkdir::WalkDir;
 use arboard::{ImageData, Clipboard};
+use num_format::{Locale, ToFormattedString};
 use rsautogui::{keyboard, keyboard::Vk};
 use std::{thread, time::Duration, rc::Rc, cell::RefCell, path::PathBuf, process::exit};
 use fltk::{app, button::Button, frame::Frame, prelude::*, window::Window, input::Input, enums::Color};
@@ -277,6 +278,77 @@ pub fn gui(){
         next_line();
         keyboard::typewrite("သူတို့ရဲ့ရုံးချိန် 9:00AM to 3:00AM အတွင်းမှာ ပြန်လည်ဖြေကြားပေးသွားပါလိမ့်မယ်");
         keyboard::key_tap(Vk::Enter);
+    });
+    //==============================================================================================
+    //bottom calculation part
+    let input_aed = Input::new(100,600,50,20,"AED");
+    let input_mmk = Input::new(300,600,50,20,"MMK");
+    let input_aed_clone = input_aed.clone();
+    let input_mmk_clone = input_mmk.clone();
+
+    let mut aed_mmk_k_aed = Button::new(100,700,100,25,"MMK");
+    let mut mmk_aed_k_aed = Button::new(100,750,100,25,"MMK");
+    let mut aed_mmk_k_mmk = Button::new(300,700,100,25,"AED");
+    let mut mmk_aed_k_mmk = Button::new(300,750,100,25,"AED");
+    //==============================================================================================
+    let r_aed_mmk_k_aed = Rc::clone(&final_rates);
+    aed_mmk_k_aed.set_callback(move |_| {
+        let rate = r_aed_mmk_k_aed.borrow_mut();
+        let aed_amount = input_aed.value();
+        match aed_amount.parse::<f64>(){
+            Ok(aed_amount)=> {
+                let r1 = ((aed_amount / (rate[0] / 100.0)) as i32) * 1000;
+                let r2 = ((aed_amount / (rate[1] / 100.0)) as i32) * 1000;
+                wait(3.0);
+                keyboard::typewrite(&format!("{:.2} AED ကို", aed_amount));next_line();
+                keyboard::typewrite(&format!("{} MMK (Bank account transfer/Kpay/Wave/True Money)", r1.to_formatted_string(&Locale::en)));next_line();
+                keyboard::typewrite(&format!("{} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)", r2.to_formatted_string(&Locale::en)));next_line();
+                keyboard::typewrite("ရပါမယ်");keyboard::key_tap(Vk::Enter);
+            }
+            Err(_)=>{}
+        }
+    });
+    let r_aed_mmk_k_mmk = Rc::clone(&final_rates);
+    aed_mmk_k_mmk.set_callback(move |_| {
+        let rate = r_aed_mmk_k_mmk.borrow_mut();
+        let mmk_amount = input_mmk.value();
+        match mmk_amount.parse::<f64>(){
+            Ok(mmk_amount)=> {
+                let m1 = (mmk_amount * 100000.0) as i32;
+                wait(3.0);
+                keyboard::typewrite(&format!("{} MMK ကို", m1.to_formatted_string(&Locale::en)));next_line();
+                keyboard::typewrite(&format!("{:.2} AED (Bank account transfer/Kpay/Wave/True Money)", mmk_amount*rate[0]));next_line();
+                keyboard::typewrite(&format!("{:.2} AED (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)", mmk_amount*rate[1]));next_line();
+                keyboard::typewrite("ပေးရပါမယ်");keyboard::key_tap(Vk::Enter);
+            }
+            Err(_)=>{}
+        }
+    });
+    let r_mmk_aed_k_aed = Rc::clone(&final_rates);
+    mmk_aed_k_aed.set_callback(move |_| {
+        let rate = r_mmk_aed_k_aed.borrow_mut()[2];
+        let aed_amount = input_aed_clone.value();
+        match aed_amount.parse::<f64>(){
+            Ok(aed_amount)=> {
+                let r1 = ((aed_amount / (rate/100.0)) as i32) *1000;
+                wait(3.0);
+                keyboard::typewrite(&format!("{} AED ကို {} MMK ပေးရပါမယ်",aed_amount, r1.to_formatted_string(&Locale::en)));keyboard::key_tap(Vk::Enter);
+            }
+            Err(_)=>{}
+        }
+    });
+    let r_mmk_aed_k_mmk = Rc::clone(&final_rates);
+    mmk_aed_k_mmk.set_callback(move |_| {
+        let rate = r_mmk_aed_k_mmk.borrow_mut()[2];
+        let mmk_amount = input_mmk_clone.value();
+        match mmk_amount.parse::<f64>(){
+            Ok(mmk_amount)=> {
+                let m1 = (mmk_amount * 100000.0) as i32;
+                wait(3.0);
+                keyboard::typewrite(&format!("{} MMK ကို {} AED ရပါမယ်", m1.to_formatted_string(&Locale::en) , mmk_amount*rate));keyboard::key_tap(Vk::Enter);
+            },
+            Err(_)=>{}
+        }
     });
     //==============================================================================================
     wind.end();
