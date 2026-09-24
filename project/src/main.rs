@@ -1,5 +1,4 @@
-mod gui;
-
+mod fast_reply;
 fn main(){
-    gui::gui();
+    fast_reply::fast_reply();
 }
