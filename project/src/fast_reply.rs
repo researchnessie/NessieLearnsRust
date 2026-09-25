@@ -3,28 +3,55 @@ use walkdir::WalkDir;
 use arboard::{ImageData, Clipboard};
 use num_format::{Locale, ToFormattedString};
 use rsautogui::{keyboard, keyboard::Vk};
-use std::{thread, time::Duration, rc::Rc, cell::RefCell, path::PathBuf, process::exit};
-use fltk::{app, button::Button, frame::Frame, prelude::*, window::Window, input::Input, enums::Color,enums::FrameType};
+use std::{thread, time::Duration, rc::Rc, cell::RefCell, process::exit};
+use fltk::{app, button::Button, frame::Frame, prelude::*, window::Window, input::Input, enums::{FrameType,Align,Color}, group::{Flex, FlexType}, image::PngImage};
 //==================================================================================================
 //global functions
-fn find_file(location:&str, filename:&str) -> Option<PathBuf>{
-    for entry in WalkDir::new(location) {
+fn process_images(filename:&str)->Option<ImageData<'static>>{
+    let download_folder = dirs::download_dir()?;
+    for entry in WalkDir::new(download_folder).into_iter(){
         let Ok(entry) = entry else {continue};
         if entry.file_name() == filename && entry.file_type().is_file() {
-            return Some(entry.path().to_path_buf())
+            let picture = image::open(entry.path()).ok()?.to_rgba8();
+            return Some(ImageData {
+                width:picture.width() as usize,
+                height:picture.height() as usize,
+                bytes:picture.into_raw().into(),
+            })
         }
+    } None
+}//search and decode images into bytes
+fn missing_picture_popup(filename: &str) -> ! {
+    let msg = format!(
+        "{} picture failed to acquire, make sure it's in the Downloads folder and the file isn't corrupted, then re-launch the app!",
+        filename
+    );
+    let mut warn = Window::new(300, 150, 420, 170, "Missing Picture");
+    style_window(&mut warn);
+    let mut warn_root = Flex::new(0, 0, 420, 170, "");
+    warn_root.set_type(FlexType::Column);
+    warn_root.set_margin(15);
+    warn_root.set_pad(10);
+    let mut warn_msg = Frame::new(0, 0, 0, 0, msg.as_str());
+    warn_msg.set_label_color(Color::from_rgb(255, 99, 99));
+    warn_msg.set_align(Align::Wrap | Align::Center);
+    let mut ok = Button::new(0, 0, 0, 0, "Ok");
+    style_button(&mut ok);
+    warn_root.fixed(&ok, 30);
+    warn_root.end();
+    warn.resizable(&warn_root);
+    warn.make_modal(true);
+    warn.end();
+    warn.show();
+    ok.set_callback(move |_| { exit(0); });
+    loop { app::wait(); }
+}//blocks until the user acknowledges, then exits the whole program
+fn load_or_warn(filename: &str) -> ImageData<'static> {
+    match process_images(filename) {
+        Some(data) => data,
+        None => missing_picture_popup(filename),
     }
-    None
-}//locates pictures
-fn img_data(location:&str, filename:&str)->ImageData<'static>{
-    let Some(acc) = find_file(location,filename) else {exit(0)};
-    let picture = image::open(acc).expect(&format!("failed to open image at {:?}", filename)).to_rgba8();
-    ImageData {
-        width:picture.width() as usize,
-        height:picture.height() as usize,
-        bytes:picture.into_raw().into()
-    }
-}//turns pictures into bytes
+}//convenience wrapper used at startup
 fn wait(seconds:f64){thread::sleep(Duration::from_secs(seconds as u64));}//simplifying wait for multiple uses
 fn next_line(){
     keyboard::key_down(Vk::Shift);
@@ -61,7 +88,7 @@ fn style_window(w: &mut Window) {
 }
 fn style_button(b: &mut Button) {
     b.set_color(Color::from_rgb(45, 45, 50));
-    b.set_label_color(Color::from_rgb(235, 235, 235));
+    b.set_label_color(Color::from_rgb(255, 192, 203));
     b.set_frame(FrameType::FlatBox);
     b.set_down_frame(FrameType::FlatBox);
 }
@@ -73,87 +100,177 @@ fn style_input(i: &mut Input) {
 //==================================================================================================
 //Main Window
 pub fn fast_reply(){
-    //global shared variables
-    let aed_acc = img_data("C:\\Users", "aedpic.jpeg");
-    let oman_acc = img_data("C:\\Users", "omanpic.jpeg");
-    let kpay_acc = img_data("C:\\Users", "kpaypic.jpeg");
-    let location_1 = img_data("C:\\Users", "location_1.jpeg");
-    let location_2 = img_data("C:\\Users", "location_2.jpeg");
-    let final_rates: Rc<RefCell<Vec<f64>>> = Rc::new(RefCell::new(Vec::new()));
-    for _ in 1..4 {final_rates.borrow_mut().push(0.0);}
-    let rates_to_update = Rc::clone(&final_rates);
-    //==============================================================================================
-// Make the APP
+    // Make the APP
     let app = app::App::default();
     app::background(24, 24, 27);
     app::background2(32, 32, 36);
     app::foreground(230, 230, 230);
-// Popup Window
-    //pre-popup window
-    let mut rate_popup = Window::new(300, 300, 250, 160, "Enter Rates");
+
+    //global shared variables
+    let aed_acc = load_or_warn("aedpic.jpeg");
+    let oman_acc = load_or_warn("omanpic.jpeg");
+    let kpay_acc = load_or_warn("kpaypic.jpeg");
+    let location_1 = load_or_warn("location_1.jpeg");
+    let location_2 = load_or_warn("location_2.jpeg");
+    let final_rates: Rc<RefCell<Vec<f64>>> = Rc::new(RefCell::new(Vec::new()));
+    for _ in 1..4 {final_rates.borrow_mut().push(0.0);}
+    let rates_to_update = Rc::clone(&final_rates);
+    //==============================================================================================
+    // Popup Window (rate entry)
+    let mut rate_popup = Window::new(300, 300, 260, 190, "Enter Rates");
     style_window(&mut rate_popup);
-    let mut aed1 = Input::new(90, 10, 100, 20, "AED_Acc");
-    let mut aed2 = Input::new(90, 40, 100, 20, "AED_Cash");
-    let mut mmk  = Input::new(90, 70, 100, 20, "MMK");
+    let mut popup_root = Flex::new(0, 0, 260, 190, "");
+    popup_root.set_type(FlexType::Column);
+    popup_root.set_margin(15);
+    popup_root.set_pad(10);
+    let mut aed1_row = Flex::new(0, 0, 0, 0, "");
+    aed1_row.set_type(FlexType::Row);
+    let aed1_label = Frame::new(0, 0, 0, 0, "AED_Acc");
+    aed1_row.fixed(&aed1_label, 70);
+    let mut aed1 = Input::new(0, 0, 0, 0, "");
+    aed1_row.end();
+    popup_root.fixed(&aed1_row, 30);
+
+    let mut aed2_row = Flex::new(0, 0, 0, 0, "");
+    aed2_row.set_type(FlexType::Row);
+    let aed2_label = Frame::new(0, 0, 0, 0, "AED_Cash");
+    aed2_row.fixed(&aed2_label, 70);
+    let mut aed2 = Input::new(0, 0, 0, 0, "");
+    aed2_row.end();
+    popup_root.fixed(&aed2_row, 30);
+
+    let mut mmk_row = Flex::new(0, 0, 0, 0, "");
+    mmk_row.set_type(FlexType::Row);
+    let mmk_label = Frame::new(0, 0, 0, 0, "MMK");
+    mmk_row.fixed(&mmk_label, 70);
+    let mut mmk = Input::new(0, 0, 0, 0, "");
+    mmk_row.end();
+    popup_root.fixed(&mmk_row, 30);
     style_input(&mut aed1); style_input(&mut aed2); style_input(&mut mmk);
-    let mut confirm_rates = Button::new(80, 110, 80, 25, "Confirm");
+    let mut confirm_rates = Button::new(0, 0, 0, 0, "Confirm");
+    style_button(&mut confirm_rates);
+    popup_root.fixed(&confirm_rates, 30);
+    popup_root.end();
+    rate_popup.resizable(&popup_root);
     rate_popup.make_modal(true);
     rate_popup.end();
     //==============================================================================================
-//==================================================================================================
-// Main Window
-    //make the main window
-    let mut wind = Window::new(1000, 200, 800, 800,"This is windows title!");
-    style_window(&mut rate_popup);
-    //==============================================================================================
-    //non-changing widgets
-    let mut title_frame = Frame::new(200,0,100,20,"Fast Reply Standard Edition");
+    // Main Window
+    let mut wind = Window::new(1000, 200, 900, 750, "FastReply");
+    style_window(&mut wind);
+    if let Ok(icon) = PngImage::load("assets/icon.png") {
+        wind.set_icon(Some(icon));
+    }
+
+    let mut root = Flex::new(0, 0, 900, 750, "");
+    root.set_type(FlexType::Column);
+    root.set_margin(12);
+    root.set_pad(8);
+
+    //------------------------------------------------------------------------------------------
+    // Header: title, warning, current-rates row
+    let mut header = Flex::new(0, 0, 0, 0, "");
+    header.set_type(FlexType::Column);
+    header.set_pad(4);
+
+    let mut title_row = Flex::new(0, 0, 0, 0, "");
+    title_row.set_type(FlexType::Row);
+    let mut title_frame = Frame::new(0, 0, 0, 0, "Fast Reply Standard Edition");
     title_frame.set_label_size(25);
     title_frame.set_color(Color::from_rgb(88, 101, 242));
-    title_frame.set_label_color(Color::White);
+    title_frame.set_label_color(Color::from_rgb(255, 192, 203));
     title_frame.show();
-    let mut warn_frame = Frame::new(200,20,100,20,"All MMK are in lakhs!");
-    warn_frame.set_label_size(10);
+    let mut type_rates = Button::new(0, 0, 0, 0, "Type Rates");
+    title_row.fixed(&type_rates, 110);
+    title_row.end();
+    header.fixed(&title_row, 40);
+
+    let mut warn_frame = Frame::new(0, 0, 0, 0, "All MMK are in lakhs!");
+    warn_frame.set_label_size(11);
     warn_frame.set_label_color(Color::Red);
-    let mut cra_frame = Frame::new(20,40,100,20,"Current rates:");
-    cra_frame.set_label_color(Color::from_rgb(235, 235, 235));
+    header.fixed(&warn_frame, 20);
+
+    let mut rates_row = Flex::new(0, 0, 0, 0, "");
+    rates_row.set_type(FlexType::Row);
+    let mut cra_frame = Frame::new(0, 0, 0, 0, "Current rates:");
+    cra_frame.set_label_color(Color::from_rgb(255, 192, 203));
     cra_frame.set_label_size(12);
-    let mut aed_acc_label = Frame::new(100,60,40,20,"AED_Acc   ");
-    let mut aed_cash_label = Frame::new(300,60,40,20,"AED_Cash   ");
-    let mut mmk_label = Frame::new(500,60,40,20,"MMK   ");
+    rates_row.fixed(&cra_frame, 100);
+    let mut aed_acc_label = Frame::new(0, 0, 0, 0, "AED_Acc");
+    rates_row.fixed(&aed_acc_label, 70);
+    let mut frame1 = Frame::new(0, 0, 0, 0, "");
+    rates_row.fixed(&frame1, 60);
+    let mut aed_cash_label = Frame::new(0, 0, 0, 0, "AED_Cash");
+    rates_row.fixed(&aed_cash_label, 70);
+    let mut frame2 = Frame::new(0, 0, 0, 0, "");
+    rates_row.fixed(&frame2, 60);
+    let mut mmk_label = Frame::new(0, 0, 0, 0, "MMK");
+    rates_row.fixed(&mmk_label, 50);
+    let mut frame3 = Frame::new(0, 0, 0, 0, "");
+    rates_row.fixed(&frame3, 60);
+    rates_row.end();
+    header.fixed(&rates_row, 30);
+
     for f in [&mut aed_acc_label, &mut aed_cash_label, &mut mmk_label] {
-        f.set_label_color(Color::from_rgb(190, 190, 195));
+        f.set_label_color(Color::from_rgb(255, 192, 203));
     }
-    //==============================================================================================
-    //Buttons
-    let mut exit_ = Button::new(400, 780, 50, 20, "Exit");
-    let mut type_rates = Button::new(100,20,50,20,"Type Rates");
+    for f in [&mut frame1, &mut frame2, &mut frame3] {
+        f.set_label_color(Color::from_rgb(120, 220, 150));
+    }
 
-    let mut aed_mmk = Button::new(50, 200, 100, 25, "AED_MMK");
-    let mut mmk_aed = Button::new(50, 250, 100, 25, "MMK_AED");
-    let mut one_aed = Button::new(50, 300, 100, 25, "1AED");
+    header.end();
+    root.fixed(&header, 100);
 
-    let mut current_aed_acc = Button::new(200, 200, 100, 25, "AED_Acc");
-    let mut current_oman_acc = Button::new(200, 250, 100, 25, "Oman_Acc");
-    let mut dubai_kpay_acc = Button::new(200, 300, 100, 25, "Dubai_Kpay");
-    let mut ygn_kpay_acc = Button::new(200, 350, 100, 25, "YGN_Kpay");
-    let mut ygn_wave_acc = Button::new(200, 400, 100, 25, "YGN_Wave");
-    let mut ygn_bank_acc = Button::new(200, 450, 100, 25, "YGN_Banks");
+    //------------------------------------------------------------------------------------------
+    // Button grid: 4 columns (fills whatever space is left over)
+    let mut button_grid = Flex::new(0, 0, 0, 0, "");
+    button_grid.set_type(FlexType::Row);
+    button_grid.set_pad(10);
 
-    let mut transfer_process = Button::new(350, 200, 100, 25, "Transfer_process");
-    let mut delay_48hr = Button::new(350, 250, 100, 25, "48Hr_delay");
-    let mut ask_acc = Button::new(350, 300, 100, 25, "Ask_account");
-    let mut large_amt = Button::new(350, 350, 100, 25, "Large_amount");
-    let mut kpay_limit = Button::new(350, 400, 100, 25, "Kpay_limit");
-    let mut dubai_location = Button::new(350, 450, 100, 25, "Dubai_Location");
+    let mut col_rates = Flex::new(0, 0, 0, 0, "");
+    col_rates.set_type(FlexType::Column);
+    col_rates.set_pad(6);
+    let mut aed_mmk = Button::new(0, 0, 0, 0, "AED_MMK");
+    let mut mmk_aed = Button::new(0, 0, 0, 0, "MMK_AED");
+    let mut one_aed = Button::new(0, 0, 0, 0, "1AED");
+    col_rates.end();
 
-    let mut ticket = Button::new(500, 200, 100, 25, "Ticket");
-    let mut passport = Button::new(500, 250, 100, 25, "Passport");
-    let mut office = Button::new(500, 300, 100, 25, "Office");
-    let mut food = Button::new(500, 350, 100, 25, "Food");
+    let mut col_accounts = Flex::new(0, 0, 0, 0, "");
+    col_accounts.set_type(FlexType::Column);
+    col_accounts.set_pad(6);
+    let mut current_aed_acc = Button::new(0, 0, 0, 0, "AED_Acc");
+    let mut current_oman_acc = Button::new(0, 0, 0, 0, "Oman_Acc");
+    let mut dubai_kpay_acc = Button::new(0, 0, 0, 0, "Dubai_Kpay");
+    let mut ygn_kpay_acc = Button::new(0, 0, 0, 0, "YGN_Kpay");
+    let mut ygn_wave_acc = Button::new(0, 0, 0, 0, "YGN_Wave");
+    let mut ygn_bank_acc = Button::new(0, 0, 0, 0, "YGN_Banks");
+    col_accounts.end();
+
+    let mut col_info = Flex::new(0, 0, 0, 0, "");
+    col_info.set_type(FlexType::Column);
+    col_info.set_pad(6);
+    let mut transfer_process = Button::new(0, 0, 0, 0, "Transfer_process");
+    let mut delay_48hr = Button::new(0, 0, 0, 0, "48Hr_delay");
+    let mut ask_acc = Button::new(0, 0, 0, 0, "Ask_account");
+    let mut large_amt = Button::new(0, 0, 0, 0, "Large_amount");
+    let mut kpay_limit = Button::new(0, 0, 0, 0, "Kpay_limit");
+    let mut dubai_location = Button::new(0, 0, 0, 0, "Dubai_Location");
+    col_info.end();
+
+    let mut col_docs = Flex::new(0, 0, 0, 0, "");
+    col_docs.set_type(FlexType::Column);
+    col_docs.set_pad(6);
+    let mut ticket = Button::new(0, 0, 0, 0, "Ticket");
+    let mut passport = Button::new(0, 0, 0, 0, "Passport");
+    let mut office = Button::new(0, 0, 0, 0, "Office");
+    let mut food = Button::new(0, 0, 0, 0, "Food");
+    col_docs.end();
+
+    button_grid.end();
+    // button_grid has no fixed size on root, so it stretches to absorb any resize
 
     for b in [
-        &mut exit_, &mut type_rates, &mut aed_mmk, &mut mmk_aed, &mut one_aed,
+        &mut type_rates, &mut aed_mmk, &mut mmk_aed, &mut one_aed,
         &mut current_aed_acc, &mut current_oman_acc, &mut dubai_kpay_acc,
         &mut ygn_kpay_acc, &mut ygn_wave_acc, &mut ygn_bank_acc,
         &mut transfer_process, &mut delay_48hr, &mut ask_acc, &mut large_amt,
@@ -162,6 +279,61 @@ pub fn fast_reply(){
     ] {
         style_button(b);
     }
+
+    //------------------------------------------------------------------------------------------
+    // Footer: calculator inputs/buttons + exit
+    let mut footer = Flex::new(0, 0, 0, 0, "");
+    footer.set_type(FlexType::Column);
+    footer.set_pad(6);
+
+    let mut calc_inputs_row = Flex::new(0, 0, 0, 0, "");
+    calc_inputs_row.set_type(FlexType::Row);
+    let mut aed_field = Flex::new(0, 0, 0, 0, "");
+    aed_field.set_type(FlexType::Row);
+    let aed_field_label = Frame::new(0, 0, 0, 0, "AED");
+    aed_field.fixed(&aed_field_label, 40);
+    let mut input_aed = Input::new(0, 0, 0, 0, "");
+    aed_field.end();
+
+    let mut mmk_field = Flex::new(0, 0, 0, 0, "");
+    mmk_field.set_type(FlexType::Row);
+    let mmk_field_label = Frame::new(0, 0, 0, 0, "MMK");
+    mmk_field.fixed(&mmk_field_label, 40);
+    let mut input_mmk = Input::new(0, 0, 0, 0, "");
+    mmk_field.end();
+    style_input(&mut input_aed); style_input(&mut input_mmk);
+    let input_aed_clone = input_aed.clone();
+    let input_mmk_clone = input_mmk.clone();
+    calc_inputs_row.end();
+    footer.fixed(&calc_inputs_row, 30);
+
+    let mut calc_buttons_row = Flex::new(0, 0, 0, 0, "");
+    calc_buttons_row.set_type(FlexType::Row);
+    let mut aed_mmk_k_aed = Button::new(0, 0, 0, 0, "MMK (aed->mmk)");
+    let mut mmk_aed_k_aed = Button::new(0, 0, 0, 0, "MMK (mmk->aed)");
+    let mut aed_mmk_k_mmk = Button::new(0, 0, 0, 0, "AED (aed->mmk)");
+    let mut mmk_aed_k_mmk = Button::new(0, 0, 0, 0, "AED (mmk->aed)");
+    calc_buttons_row.end();
+    footer.fixed(&calc_buttons_row, 30);
+
+    for b in [&mut aed_mmk_k_aed, &mut mmk_aed_k_aed, &mut aed_mmk_k_mmk, &mut mmk_aed_k_mmk] {
+        style_button(b);
+    }
+
+    let mut exit_row = Flex::new(0, 0, 0, 0, "");
+    exit_row.set_type(FlexType::Row);
+    let mut _exit_spacer = Frame::new(0, 0, 0, 0, ""); // pushes Exit to the right
+    let mut exit_ = Button::new(0, 0, 0, 0, "Exit");
+    style_button(&mut exit_);
+    exit_row.fixed(&exit_, 90);
+    exit_row.end();
+    footer.fixed(&exit_row, 30);
+
+    footer.end();
+    root.fixed(&footer, 110);
+
+    root.end();
+    wind.resizable(&root);
     //==============================================================================================
     //exit function
     exit_.set_callback(move |_| {exit(0)});
@@ -284,14 +456,6 @@ pub fn fast_reply(){
         keyboard::key_tap(Vk::Enter);
     });
     //==============================================================================================
-    //rate display frames
-    let mut frame1 = Frame::new(150,60,30,20,"");
-    let mut frame2 = Frame::new(350,60,30,20,"");
-    let mut frame3 = Frame::new(550,60,30,20,"");
-    for f in [&mut frame1, &mut frame2, &mut frame3] {
-        f.set_label_color(Color::from_rgb(120, 220, 150));
-    }
-    //==============================================================================================
     //rate sending part
     let rates_for_aed_mmk = Rc::clone(&final_rates);
     aed_mmk.set_callback(move |_| {
@@ -301,9 +465,9 @@ pub fn fast_reply(){
         keyboard::typewrite(&format!("{} AED (Bank account transfer/Kpay/Wave/True Money)", i[0]));next_line();
         keyboard::typewrite(&format!("{} AED (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်", i[1]));next_line();
         keyboard::typewrite("ပေးရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ်");next_line();
-        keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
+        keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
         keyboard::typewrite("အိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်");next_line();
-        keyboard::typewrite("ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်");
+        keyboard::typewrite("ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်");
         keyboard::key_tap(Vk::Enter);
     });
     let rates_for_mmk_aed = Rc::clone(&final_rates);
@@ -322,27 +486,12 @@ pub fn fast_reply(){
         keyboard::typewrite(&format!("{} MMK (Bank account transfer/Kpay/Wave/True Money)", (100000.0/i[0]).round() as i32));next_line();
         keyboard::typewrite(&format!("{} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်", (100000.0/i[1]).round() as i32));next_line();
         keyboard::typewrite("ငွေစျေးပြောင်းနိုင်ပါတယ်- *ငွေပြန်လွှဲပေးတဲ့အခါမှာ 1AED နဲ့တွက်ပြီးမလွှဲပေးပါဘူးနော်*");next_line();
-        keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
-        keyboard::typewrite("ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်");
+        keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
+        keyboard::typewrite("ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်");
         keyboard::key_tap(Vk::Enter);
     });
     //==============================================================================================
     //bottom calculation part
-    let mut input_aed = Input::new(100,600,50,20,"AED");
-    let mut input_mmk = Input::new(300,600,50,20,"MMK");
-    style_input(&mut input_aed); style_input(&mut input_mmk);
-    let input_aed_clone = input_aed.clone();
-    let input_mmk_clone = input_mmk.clone();
-
-    let mut aed_mmk_k_aed = Button::new(100,700,100,25,"MMK");
-    let mut mmk_aed_k_aed = Button::new(100,750,100,25,"MMK");
-    let mut aed_mmk_k_mmk = Button::new(300,700,100,25,"AED");
-    let mut mmk_aed_k_mmk = Button::new(300,750,100,25,"AED");
-
-    for b in [&mut aed_mmk_k_aed, &mut mmk_aed_k_aed, &mut aed_mmk_k_mmk, &mut mmk_aed_k_mmk] {
-        style_button(b);
-    }
-    //==============================================================================================
     let r_aed_mmk_k_aed = Rc::clone(&final_rates);
     aed_mmk_k_aed.set_callback(move |_| {
         let rate = r_aed_mmk_k_aed.borrow();
@@ -412,14 +561,20 @@ pub fn fast_reply(){
     confirm_rates.set_callback(move |_| {
         let got_rates = get_rates(&aed1.value(), &aed2.value(), &mmk.value());
         if got_rates.contains(&0.0) {
-            let mut warn = Window::new(300, 150, 250, 100, "Warning");
-            let mut warn_frame = Frame::new(10, 10, 230, 40, "Please enter valid numbers and try again!");
-            warn_frame.set_label_color(Color::from_rgb(255, 99, 99));
-            let mut warn_msg = Frame::new(10, 10, 230, 40, "Please enter valid numbers and try again!");
-            warn_msg.set_label_color(Color::from_rgb(235, 235, 235));
+            let mut warn = Window::new(300, 150, 300, 130, "Warning");
             style_window(&mut warn);
-            let mut ok = Button::new(85, 60, 80, 25, "Ok");
+            let mut warn_root = Flex::new(0, 0, 300, 130, "");
+            warn_root.set_type(FlexType::Column);
+            warn_root.set_margin(15);
+            warn_root.set_pad(10);
+            let mut warn_msg = Frame::new(0, 0, 0, 0, "Please enter valid numbers and try again!");
+            warn_msg.set_label_color(Color::from_rgb(255, 99, 99));
+            warn_msg.set_align(Align::Wrap | Align::Center);
+            let mut ok = Button::new(0, 0, 0, 0, "Ok");
             style_button(&mut ok);
+            warn_root.fixed(&ok, 30);
+            warn_root.end();
+            warn.resizable(&warn_root);
             warn.make_modal(true);
             warn.end();
             warn.show();

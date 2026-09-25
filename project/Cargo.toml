@@ -2,6 +2,7 @@
 name = "project"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 fltk = "^1.5"
@@ -10,3 +11,7 @@ arboard = "3.6.1"
 walkdir = "2.5.0"
 image = "0.25.10"
 num-format = "0.4.4"
+dirs = "7.0.0"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"

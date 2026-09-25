@@ -1,4 +1,3 @@
-
 use rsautogui::keyboard as kb;
 use std::thread;
 use std::time::Duration;
