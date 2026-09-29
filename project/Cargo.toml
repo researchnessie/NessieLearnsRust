@@ -5,13 +5,14 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-fltk = "^1.5"
+fltk = "1.5.23"
 rsautogui = "0.2.2"
+num-format = "0.4.4"
 arboard = "3.6.1"
 walkdir = "2.5.0"
-image = "0.25.10"
-num-format = "0.4.4"
 dirs = "7.0.0"
+image = "0.25.10"
+winapi = "0.3.9"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"

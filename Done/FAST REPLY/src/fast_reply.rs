@@ -1,4 +1,6 @@
 //Import modules
+use dirs;
+use image;
 use walkdir::WalkDir;
 use arboard::{ImageData, Clipboard};
 use num_format::{Locale, ToFormattedString};
@@ -210,18 +212,15 @@ pub fn fast_reply(){
     rates_row.fixed(&frame3, 60);
     rates_row.end();
     header.fixed(&rates_row, 30);
-
     for f in [&mut aed_acc_label, &mut aed_cash_label, &mut mmk_label] {
         f.set_label_color(Color::from_rgb(255, 192, 203));
     }
     for f in [&mut frame1, &mut frame2, &mut frame3] {
         f.set_label_color(Color::from_rgb(120, 220, 150));
     }
-
     header.end();
     root.fixed(&header, 100);
-
-    //------------------------------------------------------------------------------------------
+    //==============================================================================================
     // Button grid: 4 columns (fills whatever space is left over)
     let mut button_grid = Flex::new(0, 0, 0, 0, "");
     button_grid.set_type(FlexType::Row);
@@ -267,8 +266,6 @@ pub fn fast_reply(){
     col_docs.end();
 
     button_grid.end();
-    // button_grid has no fixed size on root, so it stretches to absorb any resize
-
     for b in [
         &mut type_rates, &mut aed_mmk, &mut mmk_aed, &mut one_aed,
         &mut current_aed_acc, &mut current_oman_acc, &mut dubai_kpay_acc,
@@ -279,8 +276,7 @@ pub fn fast_reply(){
     ] {
         style_button(b);
     }
-
-    //------------------------------------------------------------------------------------------
+    //==============================================================================================
     // Footer: calculator inputs/buttons + exit
     let mut footer = Flex::new(0, 0, 0, 0, "");
     footer.set_type(FlexType::Column);
@@ -322,7 +318,7 @@ pub fn fast_reply(){
 
     let mut exit_row = Flex::new(0, 0, 0, 0, "");
     exit_row.set_type(FlexType::Row);
-    let mut _exit_spacer = Frame::new(0, 0, 0, 0, ""); // pushes Exit to the right
+    let _exit_spacer = Frame::new(0, 0, 0, 0, ""); // pushes Exit to the right
     let mut exit_ = Button::new(0, 0, 0, 0, "Exit");
     style_button(&mut exit_);
     exit_row.fixed(&exit_, 90);
@@ -364,29 +360,27 @@ pub fn fast_reply(){
     });
     ygn_kpay_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Mya Mya Aye - 09421018434");next_line();
-        keyboard::typewrite("Khin Maung Than - 095505394");next_line();
-        keyboard::typewrite("Thazin Moe - 09785505394");next_line();
+        keyboard::typewrite("U Tin Htwe - 09765127873");next_line();
+        keyboard::typewrite("May Thazin Htwe - 09692944880");next_line();
         keyboard::typewrite("Kpay");keyboard::key_tap(Vk::Enter);
         keyboard::typewrite("အခုပို့ပေးထားတဲ့အကောင့်တွေက ရန်ကုန်ရုံးက အကောင့်တွေပါ အဲ့တာကြောင့် ရုံးကိုမေးပြီးတော့ ငွေဝင်မဝင် တစ်ဆင့်ငွေစစ်ရပါတယ် ငွေဝင်ထားကြောင်း confirm တဲ့အခါ ကျတော်တို့ဘက်ကပြန်ပြောပေးပါမယ် အဲ့အခါကျမှလာထုတ်ပေးပါ မဟုတ်ရင် ငွေလာထုတ်တဲ့အခါ ရုံးမှာ အကြာကြီးစောင့်နေရမှာမလို့ပါ");
         keyboard::key_tap(Vk::Enter);
     });
     ygn_wave_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Shwe Maw Htoo");next_line();
-        keyboard::typewrite("09958580157 Wave account");
+        keyboard::typewrite("U Tin Htwe - 09765127873 Wave account");next_line();
         keyboard::key_tap(Vk::Enter);
         keyboard::typewrite("အခုပို့ပေးထားတဲ့အကောင့်က ရန်ကုန်ရုံးက အကောင့်ပါ အဲ့တာကြောင့် ရုံးကိုမေးပြီးတော့ ငွေဝင်မဝင် တစ်ဆင့်ငွေစစ်ရပါတယ် ငွေဝင်ထားကြောင်း confirm တဲ့အခါ ကျတော်တို့ဘက်ကပြန်ပြောပေးပါမယ် အဲ့အခါကျမှလာထုတ်ပေးပါ မဟုတ်ရင် ငွေလာထုတ်တဲ့အခါ ရုံးမှာ အကြာကြီးစောင့်နေရမှာမလို့ပါ");
         keyboard::key_tap(Vk::Enter)
     });
     ygn_bank_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Name - Mya Mya Aye");next_line();
+        keyboard::typewrite("Name - U Tin Htwe");next_line();
         keyboard::typewrite("==============================");next_line();
-        keyboard::typewrite("CB - 0048100900006009");next_line();
-        keyboard::typewrite("Yoma - 005545498000784");next_line();
-        keyboard::typewrite("AYA - 40028269966");next_line();
-        keyboard::typewrite("KBZ Special Acc- 22851100203893301");
+        keyboard::typewrite("CB - 0208600900000744");next_line();
+        keyboard::typewrite("Yoma - 002545444000457");next_line();
+        keyboard::typewrite("AYA - 40028509455");next_line();
+        keyboard::typewrite("KBZ Special Acc- 00251120400180501");
         keyboard::key_tap(Vk::Enter);
         keyboard::typewrite("အခုပို့ပေးထားတဲ့အကောင့်တွေက ရန်ကုန်ရုံးက အကောင့်တွေပါ အဲ့တာကြောင့် ရုံးကိုမေးပြီးတော့ ငွေဝင်မဝင် တစ်ဆင့်ငွေစစ်ရပါတယ် ငွေဝင်ထားကြောင်း confirm တဲ့အခါ ကျတော်တို့ဘက်ကပြန်ပြောပေးပါမယ် အဲ့အခါကျမှလာထုတ်ပေးပါ မဟုတ်ရင် ငွေလာထုတ်တဲ့အခါ ရုံးမှာ အကြာကြီးစောင့်နေရမှာမလို့ပါ");
         keyboard::key_tap(Vk::Enter);
@@ -591,6 +585,19 @@ pub fn fast_reply(){
     //==============================================================================================
     wind.end();
     wind.show();
+    #[cfg(windows)]
+    fn set_taskbar_icon(wind: &Window) {
+        use winapi::um::winuser::{LoadIconW, SendMessageW, WM_SETICON, ICON_SMALL, ICON_BIG, MAKEINTRESOURCEW};
+        use winapi::um::libloaderapi::GetModuleHandleW;
+        unsafe {
+            let hinstance = GetModuleHandleW(std::ptr::null());
+            let icon = LoadIconW(hinstance, MAKEINTRESOURCEW(1));
+            let hwnd = wind.raw_handle() as winapi::shared::windef::HWND;
+            SendMessageW(hwnd, WM_SETICON, ICON_SMALL as usize, icon as isize);
+            SendMessageW(hwnd, WM_SETICON, ICON_BIG as usize, icon as isize);
+        }
+    }
+    set_taskbar_icon(&wind);
     rate_popup.show();
     app.run().unwrap();
 }
