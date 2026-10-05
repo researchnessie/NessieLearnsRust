@@ -1,1 +1,4 @@
 **/target/
+**/whatsapp_session.db
+**/whatsapp_session.db-shm
+**/whatsapp_session.db-wal

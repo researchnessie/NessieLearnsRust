@@ -2,17 +2,13 @@
 name = "project"
 version = "0.1.0"
 edition = "2024"
-build = "build.rs"
 
 [dependencies]
-fltk = "1.5.23"
-rsautogui = "0.2.2"
-num-format = "0.4.4"
-arboard = "3.6.1"
+whatsapp-rust = "0.7"
+tokio = "1.53.2"
+qrcode = "0.14.1"
 walkdir = "2.5.0"
-dirs = "7.0.0"
 image = "0.25.10"
-winapi = "0.3.9"
-
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1"
+arboard = "3.6.1"
+dirs = "7.0.0"
+console-utils = "1.8.3"
