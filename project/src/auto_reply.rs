@@ -1,14 +1,20 @@
 //imports
+use dirs;
 use qrcode::QrCode;
+use walkdir::WalkDir;
 use directories::ProjectDirs;
 use tokio::sync::Mutex;
 use whatsapp_rust::prelude::*;
 use console_utils::input::{input};
-use std::{fs, collections::{HashMap,HashSet}, sync::{Arc,OnceLock},thread, time::Duration};
+use std::{fs, collections::{HashMap,HashSet}, sync::{Arc,OnceLock},thread, time::{Duration, SystemTime, UNIX_EPOCH}, process::exit};
+use whatsapp_rust::download::MediaType;
+use whatsapp_rust::{media, UploadOptions};
+use whatsapp_rust::media::{ImageOptions};
 //==================================================================================================
+//modify terminal display by replacing sending messages as "ME" on user
+//
 //implement auto account sending
 //add gui indicator for being live and exit button
-//@g or not checking needed, calude covo for more detes
 //==================================================================================================
 //general functions
 fn wait(seconds:f64){thread::sleep(Duration::from_secs(seconds as u64));}//simplifying wait for multiple uses
@@ -45,10 +51,33 @@ fn get_rates(){
         get_rates()
     } else{let _ = RATES.set(ready_rates);}
 }//get initial rates
+fn process_images(filename:&str)->Option<Vec<u8>>{
+    let download_folder = dirs::download_dir()?;
+    for entry in WalkDir::new(download_folder).into_iter().flatten(){
+        if entry.file_name() == filename && entry.file_type().is_file() {
+            return fs::read(entry.path()).ok();
+        }
+    } None
+}//search and decode images into bytes
+fn load_or_warn(filename: &str) -> Vec<u8> {
+    match process_images(filename) {
+        Some(data) => data,
+        None => {
+            println!("{} is missing in the download folder!", filename);
+            exit(0)
+        },
+    }
+}//convenience wrapper used at startup
 //==================================================================================================
 pub async fn launch_bot() {
     //load_or_warn("aedpic.jpeg");
     get_rates();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let _ = START_TIME.set(now - 5);
+    let _ = AED_ACC.set(load_or_warn("aedpic.jpeg"));
     auto_bot().await.unwrap();
 }
 pub async fn auto_bot() -> Result<(), Box<dyn std::error::Error>> {
@@ -82,26 +111,55 @@ pub async fn auto_bot() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 async fn process_message(ctx: MessageContext, cache: RepliedCache) {
+    if ctx.info.timestamp.timestamp() < *START_TIME.get().unwrap() {return;} //ignore messages before launch
+
     if let Some(text) = ctx.message.text_content() {
-        let sender = ctx.info.source.sender.to_string();
         let message = text.to_lowercase();
-        println!("{} -> {}",sender.to_string(),text);
-        if sender.contains("@g"){return;}
-        if BLOCKED.iter().any(|b| b==&sender){return;}
+        let mut sender = ctx.info.source.sender.to_string();
+        if sender == String::from("199007410372652:22@lid"){sender = String::from("Me")}
+        let mut receiver = ctx.info.source.chat.to_string();
+        if receiver == String::from("199007410372652:22@lid"){receiver = String::from("Me")}
+        println!("Sender: {} -> Receiver: {} = {}",sender.to_string(),receiver.to_string(),text);
+        //==========================================================================================
+        if ctx.info.source.is_group{return;} //return if it is group message
+        if ctx.info.source.is_from_me{return;} //return if it is owner or bot
+        if BLOCKED.iter().any(|b| b==&sender){println!("from blocked list");return;} //return if it is from blocked list
+        //==========================================================================================
         let mut key ="NAR";
-        if GREETING.iter().any(|&word| message.contains(word)) {key="greeting"}
+
+             if ACCOUNT.iter().any(|&word| message.contains(word)){key="acc"}
         else if TICKETING.iter().any(|&word| message.contains(word)){key="ticketing"}
         else if PASSPORT.iter().any(|&word| message.contains(word)){key="passport"}
         else if FOOD.iter().any(|&word| message.contains(word)){key="food"}
         else if ONE_AED.iter().any(|&word| message.contains(word)){key="one_aed"}
         else if AED_MMK_RATE.iter().any(|&word| message.contains(word)){key="aed_mmk"}
         else if MMK_AED_RATE.iter().any(|&word| message.contains(word)){key="mmk_aed"}
-        else if key=="NAR"{return}
+        else if GREETING.iter().any(|&word| message.contains(word)) {key="greeting"}
+        else if key=="NAR"{return} //return if there are no reply available
         //double reply checker
         let mut db = cache.lock().await;
         let user_replies = db.entry(sender.clone()).or_insert_with(HashSet::new);
         if user_replies.contains(key){println!("Skipped duplicate reply for {} -> key = {}", sender.to_string(),key);}
-        else if get_reply(key.to_string()) != "NAR"{
+        else if key == "acc"{
+            if user_replies.contains("aed_mmk") || user_replies.contains("one_aed"){
+                user_replies.insert(String::from(key));
+                let bytes = AED_ACC.get().unwrap().clone();
+                match ctx.client.upload(bytes, MediaType::Image, UploadOptions::default()).await{
+                    Ok(upload) => {
+                        let msg = media::image_message(upload,
+                        ImageOptions{caption:Some("Caption!".into()), ..Default::default()},);
+                        if let Err(e) = ctx.send_message(msg).await{
+                            println!("Fail to send message: {}", e)
+                        }
+                    }
+                    Err(e) => {println!("Fail to upload: {}", e)}
+
+                }
+            }
+
+        }
+
+        else if get_reply(key.to_string()) != "No available reply"{
             user_replies.insert(key.to_string());
             let _ = ctx.reply(get_reply(key.to_string())).await;}
     }
@@ -124,8 +182,7 @@ fn get_reply(key:String)->String{
 မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်
 အိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်
 ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်",
-(100000.0/rates[0]).round() as i32, (100000.0/rates[1]).round() as i32
-        ),
+(100000.0/rates[0]).round() as i32, (100000.0/rates[1]).round() as i32),
         "aed_mmk"=>&format!(
 "မြန်မာပြည်ငွေလွှဲ 100,000 MMK ကို
 {} AED (Bank account transfer/Kpay/Wave/True Money)
@@ -134,14 +191,12 @@ fn get_reply(key:String)->String{
 မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်
 အိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်
 ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်",
-rates[0],rates[1]
-        ),
+rates[0],rates[1]),
         "mmk_aed"=>&format!(
 "မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်
 AED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်",
-rates[2]
-        ),
-        _ => "NAR"
+rates[2]),
+        _ => "No available reply"
     };
     reply.to_string()
 }
@@ -149,24 +204,27 @@ rates[2]
 //types
 type RepliedCache = Arc<Mutex<HashMap<String, HashSet<String>>>>;
 //constants
-const BLOCKED:[&str;15] = [
-    "142490036342981@lid", //Khin La Pyae
-    "216509955743928@lid", //OmanAgent - AyeThandarHaling
-    "224953794322458@lid", //OmanAgent - SeineLaeLae
-    "97771004662011@lid",  //OmanAgent - Lydia
-    "45754437627913@lid",  //KoWaiYan Qatar
-    "146437111312478@lid", //TNT Ticketing
-    "222075646177373@lid", //TNT Reception
-    "143576679846075@lid", //TNT Food
-    "73676020048049@lid",  //Thazin Tint
-    "37392203395228@lid",  //Mr.TNT
-    "138418692587692@lid", //Shumawa
-    "40252852945107@lid",  //AKS
-    "135093918113861",     //KZL
-    "17867584094214@lid",  //Phyo MaungMaung
+const BLOCKED:[&str;16] = [
+    "142490036342981@lid",  //Khin La Pyae
+    "216509955743928@lid",  //OmanAgent - AyeThandarHaling
+    "224953794322458@lid",  //OmanAgent - SeineLaeLae
+    "97771004662011@lid",   //OmanAgent - Lydia
+    "45754437627913@lid",   //KoWaiYan Qatar
+    "146437111312478@lid",  //TNT Ticketing
+    "222075646177373@lid",  //TNT Reception
+    "143576679846075@lid",  //TNT Food
+    "73676020048049@lid",   //Thazin Tint
+    "37392203395228@lid",   //Mr.TNT
+    "138418692587692@lid",  //Shumawa
+    "40252852945107@lid",   //AKS
+    "135093918113861",      //KZL
+    "17867584094214@lid",   //Phyo MaungMaung
     "200992322777123@lid",  //TTW
-    //"80350717968563@lid",  //Me
+    "102723068424257@lid",   //KTDL Oman
+    //"199007410372652:22@lid" //ONLINE WA
+    //"80350717968563@lid", //Me
 ];
+const ACCOUNT:[&str;3] = ["acc","account", "အကောင့်"];
 const GREETING:[&str;7]=["hi", "hello", "မင်္ဂလာ", "မဂလာ", "မဂ်လာ", "xi", "ဟိုင်း"];
 const TICKETING: [&str;5] = ["ticketing", "ticket", "visa", "လက်မှတ်", "ဗီဇာ"];
 const PASSPORT: [&str;3] = ["passport", "ပတ်စပို့", "သက်တမ်းတိုး"];
@@ -186,3 +244,5 @@ const MMK_AED_RATE:[&str;10] = [
 ];
 
 static RATES :OnceLock<Vec<f64>> = OnceLock::new();
+static START_TIME: OnceLock<i64> = OnceLock::new();
+static AED_ACC:OnceLock<Vec<u8>> = OnceLock::new();
