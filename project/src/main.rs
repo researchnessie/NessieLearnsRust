@@ -1,6 +1,6 @@
-mod auto_reply;
-mod test;
+mod bot_reply;
 #[tokio::main]
 async fn main() {
-    auto_reply::launch_bot().await
+    bot_reply::launch_bot().await
 }
+//fn main() {test::test()}
