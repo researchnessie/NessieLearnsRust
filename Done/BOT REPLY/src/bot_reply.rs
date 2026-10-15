@@ -46,40 +46,71 @@ fn load_or_warn(filename: &str) -> Vec<u8> {
         }
     }
 } //convenience wrapper used at startup
+fn is_glue(c: char) -> bool {
+    c.is_ascii_alphanumeric()
+}
+fn has_keyword(text: &str, word: &str) -> bool {
+    let guard_left = word.chars().next().is_some_and(is_glue);
+    let guard_right = word.chars().next_back().is_some_and(is_glue);
+
+    text.match_indices(word).any(|(start, found)| {
+        let before = text[..start].chars().next_back(); // char just before the match
+        let after = text[start + found.len()..].chars().next(); // char just after it
+        let left_ok = !guard_left || !before.is_some_and(is_glue);
+        let right_ok = !guard_right || !after.is_some_and(is_glue);
+        left_ok && right_ok
+    })
+}
+fn ask_aed_acc()->f64{
+    loop{
+        let x:String = input("AED_MMK Acc: ");
+        match x.trim().parse::<f64>(){
+            Ok(v) if v.is_finite() && v > 0.0 => return v,
+            _ => {println!("{}","Invalid input, try again!".red())}
+        }
+    }
+}
+fn ask_aed_cash()->f64{
+    loop{
+        let x:String = input("AED_MMK Cash: ");
+        match x.trim().parse::<f64>(){
+            Ok(v) if v.is_finite() && v > 0.0 => return v,
+            _ => {println!("{}","Invalid input, try again!".red())}
+        }
+    }
+}
+fn ask_mmk_aed()->f64{
+    loop{
+        let x:String = input("MMK_AED: ");
+        match x.trim().parse::<f64>(){
+            Ok(v) if v.is_finite() || v.is_sign_positive() => return v,
+            _ => {println!("{}","Invalid input, try again!".red())}
+        }
+    }
+}
 //==================================================================================================
 //main program
 pub struct Botty{
-    rates: Vec<f64>,
+    rates:[f64;3],
     start_time: i64,
     aed_acc: Vec<u8>,
+    aed_reg:Regex,
+    mmk_reg:Regex,
+    one_aed_reg:Regex,
 }
 impl Botty{
     fn init()->Self{
-        println!("{}", "Type your rates...".purple());
-        let aed_mmk_acc: String = input("AED_MMK Acc: ");
-        let aed_mmk_cash: String = input("AED_MMK Cash: ");
-        let mmk_aed: String = input("MMK_AED: ");
-        let check_rates = [aed_mmk_acc, aed_mmk_cash, mmk_aed];
-        let mut ready_rates = vec![];
-        for r in check_rates.iter() {
-            match r.trim().parse::<f64>() {
-                Ok(val) => ready_rates.push(val),
-                Err(_) => ready_rates.push(0.0),
-            }
-        }
-        if ready_rates.contains(&0.0) {
-            println!("{}", "WARNING: Rates Error!".red());
-            return Self::init();
-        }
+        println!("{}", "Type your rates...".green());
         let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .duration_since(UNIX_EPOCH).unwrap()
             .as_secs() as i64;
-        let acc = load_or_warn("aedpic.jpeg");
         Botty{
-            rates:ready_rates,
+            rates:[ask_aed_acc(), ask_aed_cash(), ask_mmk_aed()],
             start_time:now,
-            aed_acc:acc,
+            aed_acc:load_or_warn("aedpic.jpeg"),
+            aed_reg:Regex::new(AED_REG).unwrap(),
+            mmk_reg:Regex::new(MMK_REG).unwrap(),
+            one_aed_reg:Regex::new(ONE_AED_REG).unwrap(),
         }
     }
     fn get_reply(&self, key:MessageKey) -> Option<String> {
@@ -103,9 +134,14 @@ impl Botty{
             self.rates[0], self.rates[1]))
             },
             MessageKey::MmkAed => {
-            Some(format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်\nAED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်",self.rates[2]))
+                if self.rates[2]!=0.0{
+                    Some(format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်\nAED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်",self.rates[2]))
+                }
+                else{
+                    Some("လောလောဆယ် mmk to aed ငွေလွှဲပေးရန် stock မရှိသေးပါဘူး ငွေပြန်လွှဲလို့ရတဲ့အခါပြောပေးပါမယ်နော်".to_string())
+                }
             },
-            _ => None
+            MessageKey::Acc => None
         }
     }
 }
@@ -141,8 +177,8 @@ pub async fn auto_bot(botty:Arc<Botty>) -> Result<(), Box<dyn std::error::Error>
                     .build();
                 println!("\nScan this QR code with WhatsApp:\n{}\n", image);
             } else {
-                println!("{}", "QR Code rendering filed!".red());
-                println!("{}", "QR Code string: {code}".purple());
+                println!("{}", "QR Code rendering failed!".red());
+                println!("{}",format!("QR Code string: {code}").green());
             }
         })
         .on_message(move |ctx| {
@@ -161,14 +197,14 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
     if let Some(text) = ctx.message.text_content() {
         let message = text.to_lowercase();
         let mut sender = ctx.info.source.sender.to_string();
-        if sender == String::from("199007410372652:22@lid") {sender = String::from("Me")}
+        if sender == "199007410372652:22@lid".to_string() {sender = String::from("Me")}
         let mut receiver = ctx.info.source.chat.to_string();
         if receiver == sender {receiver = String::from("Me")}
         //if sender != "80350717968563@lid"{return} //only for tests
         //==========================================================================================
-        if ctx.info.source.is_group {println!("{}",message.blue().on_yellow());return;} //return if it is group message
-        if ctx.info.source.is_from_me {println!("{}",message.on_white().black());return;} //return if it is owner or bot
-        if BLOCKED.iter().any(|b| b == &sender) {println!("{}", "from blocked list".purple().on_white());return;} //return if it is from blocked list
+        if ctx.info.source.is_group {println!("{}",message.blue().on_white());return;} //return if it is group message
+        if ctx.info.source.is_from_me {println!("{}",message.black().on_white());return;} //return if it is owner or bot
+        if BLOCKED.iter().any(|b| b == &sender) {println!("{},{}", "[from blocked list]:".purple().on_white(),message.purple().on_white());return;} //return if it is from blocked list
         println!("Sender: {} -> Receiver: {} = {}",
                  sender.to_string(),
                  receiver.to_string(),
@@ -176,18 +212,15 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
         );
         //==========================================================================================
         let mut key = vec![];
-        let aed_reg = Regex::new(AED_REG).unwrap();
-        let mmk_reg = Regex::new(MMK_REG).unwrap();
-        let one_aed_reg = Regex::new(ONE_AED_REG).unwrap();
 
-        if GREETING.iter().any(|&word| message.contains(word)) {key.push(MessageKey::Greeting)}
-        if TICKETING.iter().any(|&word| message.contains(word)) {key.push(MessageKey::Ticketing)}
-        if PASSPORT.iter().any(|&word| message.contains(word)) {key.push(MessageKey::Passport)}
-        if FOOD.iter().any(|&word| message.contains(word)) {key.push(MessageKey::Food)}
-        if aed_reg.is_match(&message){key.push(MessageKey::AedMmk)}
-        if mmk_reg.is_match(&message){key.push(MessageKey::MmkAed)}
-        if one_aed_reg.is_match(&message){key.push(MessageKey::OneAED)}
-        if ACCOUNT.iter().any(|&word| message.contains(word)) {key.push(MessageKey::Acc)}
+        if GREETING.iter().any(|&word| has_keyword(&message,word)) {key.push(MessageKey::Greeting)}
+        if TICKETING.iter().any(|&word| has_keyword(&message, word)) {key.push(MessageKey::Ticketing)}
+        if PASSPORT.iter().any(|&word| has_keyword(&message,word)) {key.push(MessageKey::Passport)}
+        if FOOD.iter().any(|&word| has_keyword(&message,word)) {key.push(MessageKey::Food)}
+        if botty.aed_reg.is_match(&message){key.push(MessageKey::AedMmk)}
+        if botty.mmk_reg.is_match(&message){key.push(MessageKey::MmkAed)}
+        if botty.one_aed_reg.is_match(&message){key.push(MessageKey::OneAED)}
+        if ACCOUNT.iter().any(|&word| has_keyword(&message,word)) {key.push(MessageKey::Acc)}
         if key.is_empty() {return;} //return if there are no reply available
 
         //double reply checker
@@ -204,8 +237,8 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
             }
         }
         if key_clone.contains(&MessageKey::Acc) {
-            if user_replies.contains(&MessageKey::OneAED) || user_replies.contains(&MessageKey::AedMmk) {
-                if sender!="80350717968563@lid"{ user_replies.insert(MessageKey::Acc); }
+            if user_replies.contains(&MessageKey::OneAED) || user_replies.contains(&MessageKey::AedMmk) || sender == "80350717968563@lid".to_string() {
+                if sender!="80350717968563@lid".to_string(){user_replies.insert(MessageKey::Acc);}
                 let bytes = botty.aed_acc.clone();
                 match ctx.client.upload(bytes, MediaType::Image, UploadOptions::default()).await{
                     Ok(upload) => {
@@ -239,7 +272,7 @@ enum MessageKey{
 }
 //==================================================================================================
 //constants
-const BLOCKED: [&str; 16] = [
+const BLOCKED: [&str; 16] = {[
     "142490036342981@lid", //Khin La Pyae
     "216509955743928@lid", //OmanAgent - AyeThandarHaling
     "224953794322458@lid", //OmanAgent - SeineLaeLae
@@ -258,14 +291,13 @@ const BLOCKED: [&str; 16] = [
     "102723068424257@lid", //KTDL Oman
     //"199007410372652:22@lid" //ONLINE WA
     //"80350717968563@lid", //Me
-];
+]};
 const ACCOUNT: [&str; 3] = ["acc", "account", "အကောင့်"];
 const GREETING: [&str; 7] = ["hi", "hello", "မင်္ဂလာ", "မဂလာ", "မဂ်လာ", "xi", "ဟိုင်း"];
 const TICKETING: [&str; 5] = ["ticketing", "ticket", "visa", "လက်မှတ်", "ဗီဇာ"];
 const PASSPORT: [&str; 3] = ["passport", "ပတ်စပို့", "သက်တမ်းတိုး"];
 const FOOD: [&str; 3] = ["food", "စားစရာ", "မုန့်"];
-const ONE_AED_REG:&str = r"(?i)\b1\s*(-)?\s*(aed|ကျပ်)";
-const AED_REG:&str = r"(?i)\b(aed|dubai|uae|ဒူဘိုင်း)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|myanmar|kpay|wave|မြန်မာ)";
-const MMK_REG:&str = r"(?i)\b(mmk|mk|myanmar|kpay|wave|မြန်မာ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(aed|dubai|uae|ဒူဘိုင်း)";
-const CAPTION: &str =   "ပုံထဲမှာ ရေးထားတာလေးသေချာသတိထားပေးပါ ကျေးဇူးတင်ပါတယ်\n
-                        လွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်";
+const ONE_AED_REG:&str = r"(?i)(?-u:\b)1\s*(-)?\s*(aed|ကျပ်)";
+const AED_REG:&str = r"(?i)(?-u:\b)(aed|dubai|uae|ဒူဘိုင်း)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|myanmar|kpay|wave|မြန်မာ)";
+const MMK_REG:&str = r"(?i)(?-u:\b)(mmk|mk|myanmar|kpay|wave|မြန်မာ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(aed|dubai|uae|ဒူဘိုင်း)";
+const CAPTION: &str =   "ပုံထဲမှာ ရေးထားတာလေးသေချာသတိထားပေးပါ ကျေးဇူးတင်ပါတယ်\nလွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်";
