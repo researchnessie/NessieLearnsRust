@@ -3,8 +3,8 @@ use dirs;
 use image;
 use walkdir::WalkDir;
 use arboard::{ImageData, Clipboard};
-use num_format::{Locale, ToFormattedString};
 use rsautogui::{keyboard, keyboard::Vk};
+use num_format::{Locale, ToFormattedString};
 use std::{thread, time::Duration, rc::Rc, cell::RefCell, process::exit};
 use fltk::{app, button::Button, frame::Frame, prelude::*, window::Window, input::Input, enums::{FrameType,Align,Color}, group::{Flex, FlexType}, image::PngImage};
 //==================================================================================================
@@ -252,7 +252,8 @@ pub fn fast_reply(){
     let mut delay_48hr = Button::new(0, 0, 0, 0, "48Hr_delay");
     let mut ask_acc = Button::new(0, 0, 0, 0, "Ask_account");
     let mut large_amt = Button::new(0, 0, 0, 0, "Large_amount");
-    let mut kpay_limit = Button::new(0, 0, 0, 0, "Kpay_limit");
+    let mut kpay_limit_customer = Button::new(0, 0, 0, 0, "Kpay_limit_customer");
+    let mut kpay_limit_our_acc = Button::new(0, 0, 0, 0, "Kpay_limit_our_acc");
     let mut dubai_location = Button::new(0, 0, 0, 0, "Dubai_Location");
     col_info.end();
 
@@ -271,7 +272,7 @@ pub fn fast_reply(){
         &mut current_aed_acc, &mut current_oman_acc, &mut dubai_kpay_acc,
         &mut ygn_kpay_acc, &mut ygn_wave_acc, &mut ygn_bank_acc,
         &mut transfer_process, &mut delay_48hr, &mut ask_acc, &mut large_amt,
-        &mut kpay_limit, &mut dubai_location, &mut ticket, &mut passport,
+        &mut kpay_limit_customer,&mut kpay_limit_our_acc, &mut dubai_location, &mut ticket, &mut passport,
         &mut office, &mut food,
     ] {
         style_button(b);
@@ -406,9 +407,14 @@ pub fn fast_reply(){
         keyboard::typewrite("လွှဲမယ့်အမောင့်လေးရယ် AED ပေးမယ့်ပုံစံရယ် MMK ပြန်ယူမယ့်ပုံစံရယ်ပြောပေးပါနော် boss ကိုစျေးမေးပေးပါမယ်");
         keyboard::key_tap(Vk::Enter);
     });
-    kpay_limit.set_callback(move |_| {
+    kpay_limit_customer.set_callback(move |_| {
         wait(3.0);
         keyboard::typewrite("kpay က တစ်နေ့ကို 5,000,000 MMK ပဲလွှဲပေးလို့ရပါတယ် ကျန်တာ နောက်နေ့မှထပ်ထည့်ပေးလို့ရပါမယ် ဒီနေ့လိုချင်တယ်ဆို နောက်ထပ်အကောင့်တစ်ခုထပ်ပေးမှရပါမယ်");
+        keyboard::key_tap(Vk::Enter);
+    });
+    kpay_limit_our_acc.set_callback(move |_| {
+        wait(3.0);
+        keyboard::typewrite("Kpay limit ပြည့်နေလို့ပါ limit ပြန်ရတဲ့ အချိန် Dubai time 9:30pm, Myanmar time 12:00am ကျမှထပ်လွှဲလို့ရပါမယ်");
         keyboard::key_tap(Vk::Enter);
     });
     dubai_location.set_callback(move |_| {
