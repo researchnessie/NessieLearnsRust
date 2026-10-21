@@ -1,4 +1,5 @@
 //import crates
+use dirs;
 use colored::*;
 use regex::Regex;
 use qrcode::QrCode;
@@ -298,6 +299,6 @@ const TICKETING: [&str; 5] = ["ticketing", "ticket", "visa", "လက်မှတ
 const PASSPORT: [&str; 3] = ["passport", "ပတ်စပို့", "သက်တမ်းတိုး"];
 const FOOD: [&str; 3] = ["food", "စားစရာ", "မုန့်"];
 const ONE_AED_REG:&str = r"(?i)(?-u:\b)1\s*(-)?\s*(aed|ကျပ်)";
-const AED_REG:&str = r"(?i)(?-u:\b)(aed|dubai|uae|ဒူဘိုင်း)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|myanmar|kpay|wave|မြန်မာ)";
-const MMK_REG:&str = r"(?i)(?-u:\b)(mmk|mk|myanmar|kpay|wave|မြန်မာ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(aed|dubai|uae|ဒူဘိုင်း)";
+const AED_REG:&str = r"(?i)(?-u:\b)(aed|dubai|uae|ဒူဘိုင်း|rate|စျေး|ငွေ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ|rate|စျေး)";
+const MMK_REG:&str = r"(?i)(?-u:\b)(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(aed|dubai|uae|ဒူဘိုင်း)";
 const CAPTION: &str =   "ပုံထဲမှာ ရေးထားတာလေးသေချာသတိထားပေးပါ ကျေးဇူးတင်ပါတယ်\nလွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်";

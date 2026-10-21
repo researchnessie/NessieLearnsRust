@@ -1,0 +1,18 @@
+[package]
+name = "tempo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dirs = "7.0.0"
+colored = "3.1.1"
+regex = "1.13.1"
+qrcode = "0.14.1"
+walkdir = "2.5.0"
+tokio = "1.54.0"
+directories = "6.0.0"
+console-utils = "1.8.3"
+whatsapp-rust = "0.7.0"
+
+[build-dependencies]
+winres = "0.1.12"

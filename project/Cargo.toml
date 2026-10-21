@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rsautogui = "0.2.2"
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts", "accesskit", "clipboard", "links"] }
+egui = "0.37.0"
+colored = "3.1.1"
 chrono = "0.4.45"
-espeak-ng = "0.2.0"
+powershell_script = "1.1.0"
+walkdir = "2.5.0"
+rodio = "0.23.0"
+rsautogui = "0.3.0"
+windows-sys = { version = "0.61.2",features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }

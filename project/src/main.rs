@@ -1,4 +1,4 @@
-mod reminder;
+mod learn_egui;
 fn main() {
-    reminder::test_audio();
+    let _ = learn_egui::learn();
 }
