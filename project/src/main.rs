@@ -1,4 +1,6 @@
-mod learn_egui;
+#![windows_subsystem="windows"]
+mod reminder_app;
+
 fn main() {
-    let _ = learn_egui::learn();
+    let _ = reminder_app::run_main();
 }

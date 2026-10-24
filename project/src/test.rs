@@ -1,31 +1,32 @@
-use std::thread;
-use std::time::Duration;
-// use std::{time::Duration, thread};
-// use espeak_ng::{text_to_ipa, EspeakNg, text_to_pcm};
-// use rsautogui::{keyboard, keyboard::Vk};
-// use chrono::{Local, Timelike};
-//
-// pub fn remind(){
-//     thread::spawn(move || {
-//         loop {
-//             thread::sleep(Duration::from_mins(10));
-//             remind_messenger();
-//         }
-//     });
-//     loop{
-//         thread::sleep(Duration::from_secs(5));
-//         remind_sheet11()
-//     }
-// }
-
+use std::fs;
+use std::path::PathBuf;
+use chrono::{DateTime, Local};
+use directories::ProjectDirs;
+use serde::{Serialize,Deserialize};
+#[derive(Serialize, Deserialize, Debug)]
+struct Task{done:bool, id:DateTime<Local>, task:String}
+type JsonStorage = Vec<Task>;
+fn load_json()-> JsonStorage {
+    let path = storage();
+    if path.exists(){
+        let contents = fs::read_to_string(&path).unwrap_or_default();
+        serde_json::from_str(&contents).unwrap_or_default()
+    }
+    else { Vec::new() }
+}
+fn storage()->PathBuf{
+    if let Some(proj_dirs) = ProjectDirs::from("com", "Nessie", "Reminder"){
+        let data_dir = proj_dirs.data_dir();
+        fs::create_dir_all(data_dir).expect("Failed to create app data directory!");
+        data_dir.join("storage.json")
+    }else{
+        PathBuf::from("storage.json")
+    }
+}
 pub fn test(){
-    loop{
-        let now = Local::now();
-        let current_hour = now.hour();
-        let current_min = now.minute();
-        if current_hour == 23 && current_min == 48 {
-            loop{println!("Now is the time")}
-        }
-        thread::sleep(Duration::from_secs(10))
+    let all_tasks = load_json();
+    for task in all_tasks.iter(){
+        println!("{:?}",task);
+        println!("{:?}",task.task);
     }
 }
