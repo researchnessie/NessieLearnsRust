@@ -2,3 +2,5 @@
 **/whatsapp_session.db
 **/whatsapp_session.db-shm
 **/whatsapp_session.db-wal
+target/
+Cargo.lock
