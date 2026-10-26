@@ -1,0 +1,8 @@
+you need to have
+aedpic.jpeg
+omanpic.jpeg
+kpaypic.jpeg
+location_1.jpeg
+location_2.jpeg
+
+inside current user's download folder to use this program!
