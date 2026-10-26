@@ -1,0 +1,17 @@
+[package]
+name = "FastReply"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dirs = "7.0.0"
+image = "0.25.10"
+walkdir = "2.5.0"
+arboard = "3.7.0"
+rsautogui = "0.3.0"
+num-format = "0.4.4"
+fltk = "1.5.23"
+winapi = { version = "0.3.9",features = ["winuser","libloaderapi","windef"] }
+
+[build-dependencies]
+winres = "0.1.12"

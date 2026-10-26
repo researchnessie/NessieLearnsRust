@@ -1,0 +1,1 @@
+Get-ChildItem -Recurse -Directory -Filter "target" | Remove-Item -Recurse -Force
