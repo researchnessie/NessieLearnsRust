@@ -1,5 +1,5 @@
 #![windows_subsystem="windows"]
-mod reminder_app;
+mod reminder;
 fn main() {
-    let _ = reminder_app::run_main();
+    let _ = reminder::start_app();
 }
