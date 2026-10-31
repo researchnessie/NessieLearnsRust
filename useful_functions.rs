@@ -19,3 +19,32 @@ fn read_and_write(input:String)->Result<(), io::Error> {
     else{fs::write(file.unwrap(), input)?;}
     Ok(())
 }
+fn find_windows(){
+    unsafe extern "system" fn find(win: HWND, _lparam: LPARAM) -> BOOL {
+        unsafe{
+            if IsWindowVisible(win) != 0{
+                let length = GetWindowTextLengthW(win);
+                if length > 0 {
+                    let mut buf = vec![0u16; (length + 1) as usize];
+                    let actual_len = GetWindowTextW(win, buf.as_mut_ptr(), buf.len() as i32);
+                    if actual_len > 0 {
+                        let title = String::from_utf16_lossy(&buf[..actual_len as usize]);
+                        if !title.trim().is_empty() {
+                            if title.to_lowercase().contains("opera") {
+                                BlockInput(1);
+                                ShowWindow(win, SW_MAXIMIZE);
+                                SetForegroundWindow(win);
+                                BlockInput(0);
+                                return TRUE;
+                            }
+                        }
+                    }
+                }
+            }
+            TRUE
+        }
+    }
+    unsafe {
+        EnumWindows(Some(find), 0);
+    }
+}//finds the active windows
