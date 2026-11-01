@@ -1,5 +1,6 @@
 //imports
 use eframe;
+use dirs;
 use directories::ProjectDirs;
 use chrono::{Local, Timelike, Datelike};
 use serde::{Serialize,Deserialize};
@@ -37,7 +38,7 @@ fn play_audio(audio_file:PathBuf){
         .expect("open default audio stream");
     let source = Decoder::try_from(file).unwrap();
     handle.mixer().add(source);
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(5));
 }
 //==================================================================================================
 //general types and structs
@@ -55,8 +56,7 @@ fn storage()->PathBuf{
         PathBuf::from("reminder_storage.json")
     }
 }
-fn load_json()-> JsonStorage {
-    let path = storage();
+fn load_json(path:PathBuf)-> JsonStorage {
     if path.exists(){
         let contents = fs::read_to_string(&path).unwrap_or_default();
         serde_json::from_str(&contents).unwrap_or_default()
@@ -89,7 +89,7 @@ impl Reminder{
         let file_path = find_file("alert.mp3");
         let file_missing = file_path.is_none();
         //load tasks from storage
-        let mut all_tasks = load_json();
+        let mut all_tasks = load_json(storage());
         //add default tasks
         let now = Local::now();
         if 26 <= now.day() && now.day() <= 29 {all_tasks.push(Task{task:String::from("Fingerprint list"),done:false,hour:11,min:30})}
@@ -129,8 +129,22 @@ impl eframe::App for Reminder{
             ui.add_space(10.0);
             ui.horizontal(|ui|{
                 ui.heading("Reminder");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center),
-                |ui|{if ui.button("Exit").clicked(){exit(0);}})
+                if ui.button("Exit").clicked(){exit(0)};
+                if ui.button("Update").clicked(){
+                    for folder in walkdir::WalkDir::new(dirs::data_dir().unwrap()).into_iter(){
+                        let Ok(file) = folder else {continue};
+                        if file.file_name() == "user_storage.json" && file.file_type().is_file() {
+                            let new_data = load_json(file.path().to_path_buf());
+                            let mut old_data = load_json(storage());
+                            for t in new_data.iter(){
+                                old_data.push(t.clone());
+                            }
+                            self.task = old_data;
+                            save_json(self.task.clone());
+                            let _ = fs::write(file.path(), "[]");
+                        }
+                    }
+                }
             });
             ui.add_space(10.0);
             ui.separator();
@@ -213,7 +227,8 @@ impl eframe::App for Reminder{
 }
 //==================================================================================================
 pub fn start_app()-> eframe::Result{
-    //thread::spawn(move || {remind_messenger()});
+    let x = find_file("alert.mp3");
+    thread::spawn(move || {remind_messenger(x.unwrap())});
     let mut options = eframe::NativeOptions::default();
     options.viewport= egui::ViewportBuilder::default().with_icon(load_icon());
     eframe::run_native(

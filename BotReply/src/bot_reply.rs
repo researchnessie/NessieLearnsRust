@@ -7,10 +7,34 @@ use walkdir::WalkDir;
 use tokio::sync::Mutex;
 use directories::ProjectDirs;
 use console_utils::input::input;
-use whatsapp_rust::{UploadOptions, download::MediaType, media, media::ImageOptions, prelude::*};
-use std::{fs, sync::Arc, process::exit,collections::{HashMap, HashSet},time::{Duration, SystemTime, UNIX_EPOCH}};
+use whatsapp_rust::{download::MediaType, media, media::ImageOptions, prelude::*, UploadOptions, serde_json};
+use std::{fs, sync::Arc, process::exit,collections::{HashMap, HashSet},path::PathBuf, time::{Duration, SystemTime, UNIX_EPOCH}};
+use serde::{Deserialize, Serialize};
+
 //==================================================================================================
 //general functions
+fn storage()->PathBuf{
+    if let Some(proj_dirs) = ProjectDirs::from("com", "AutoReply", "UserData") {
+        let data_dir = proj_dirs.data_dir();
+        fs::create_dir_all(data_dir).expect("Failed to create app data directory!");
+        data_dir.join("user_storage.json")
+    }else{
+        PathBuf::from("user_storage.json")
+    }
+}
+fn load_json()-> JsonStorage {
+    let path = storage();
+    if path.exists(){
+        let contents = fs::read_to_string(&path).unwrap_or_default();
+        serde_json::from_str(&contents).unwrap_or_default()
+    }
+    else { Vec::new() }
+}
+fn save_json(data: JsonStorage){
+    let path = storage();
+    let json = serde_json::to_string_pretty(&data).expect("Failed to serialize json!");
+    fs::write(&path, json).expect("Failed to write json!");
+}
 fn store() -> String {
     let db_path = if let Some(proj_dirs) = ProjectDirs::from("com", "AutoReply", "WhatsAppBot") {
         let data_dir = proj_dirs.data_dir();
@@ -21,7 +45,7 @@ fn store() -> String {
         data_dir.join("whatsapp_session.db")
     } else {
         // Fallback if OS doesn't support project dirs
-        std::path::PathBuf::from("whatsapp_session.db")
+        PathBuf::from("whatsapp_session.db")
     };
     db_path.to_str().unwrap().to_string()
 }//to store the log-in data
@@ -203,6 +227,16 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
         if receiver == sender {receiver = String::from("Me")}
         //if sender != "80350717968563@lid"{return} //only for tests
         //==========================================================================================
+        //add senders to a file
+        if sender != "Me".to_string() {
+            let mut more = load_json();
+            let already_exists = more.iter().any(|Task|Task.task == sender);
+            if !already_exists {
+                more.push(Task{task: sender.clone(), hour:23,min:59,done:false});
+                save_json(more);
+            }
+        }
+        //==========================================================================================
         if ctx.info.source.is_group {println!("{}",message.blue().on_white());return;} //return if it is group message
         if ctx.info.source.is_from_me {println!("{}",message.black().on_white());return;} //return if it is owner or bot
         if BLOCKED.iter().any(|b| b == &sender) {println!("{},{}", "[from blocked list]:".purple().on_white(),message.purple().on_white());return;} //return if it is from blocked list
@@ -263,7 +297,10 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
     }
 }
 //==================================================================================================
-//types needed
+//types and structs needed
+#[derive(Serialize, Deserialize, Clone)]
+struct Task{task:String, hour:u32, min:u32, done:bool}
+type JsonStorage = Vec<Task>;
 type RepliedCache = Arc<Mutex<HashMap<String, HashSet<MessageKey>>>>;
 //==================================================================================================
 //enums needed
@@ -302,3 +339,4 @@ const ONE_AED_REG:&str = r"(?i)(?-u:\b)1\s*(-)?\s*(aed|ကျပ်)";
 const AED_REG:&str = r"(?i)(?-u:\b)(aed|dubai|uae|ဒူဘိုင်း|rate|စျေး|ငွေ|exchange|ဒီနေ့|today)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ|rate|စျေး)";
 const MMK_REG:&str = r"(?i)(?-u:\b)(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(aed|dubai|uae|ဒူဘိုင်း)";
 const CAPTION: &str =   "ပုံထဲမှာ ရေးထားတာလေးသေချာသတိထားပေးပါ ကျေးဇူးတင်ပါတယ်\nလွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်";
+//==================================================================================================
