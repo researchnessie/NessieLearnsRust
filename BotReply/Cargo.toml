@@ -14,6 +14,7 @@ directories = "6.0.0"
 console-utils = "1.8.3"
 whatsapp-rust = "0.7.0"
 serde = "1.0.229"
+wacore = "0.7.0"
 
 [build-dependencies]
 winres = "0.1.12"

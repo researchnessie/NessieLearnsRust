@@ -8,9 +8,9 @@ use tokio::sync::Mutex;
 use directories::ProjectDirs;
 use console_utils::input::input;
 use whatsapp_rust::{download::MediaType, media, media::ImageOptions, prelude::*, UploadOptions, serde_json};
-use std::{fs, sync::Arc, process::exit,collections::{HashMap, HashSet},path::PathBuf, time::{Duration, SystemTime, UNIX_EPOCH}};
+use std::{fs, sync::Arc, process::exit, collections::{HashMap, HashSet}, path::PathBuf, time::{Duration, SystemTime, UNIX_EPOCH}, thread};
 use serde::{Deserialize, Serialize};
-
+use wacore::proto_helpers::MessageExt;
 //==================================================================================================
 //general functions
 fn storage()->PathBuf{
@@ -21,7 +21,7 @@ fn storage()->PathBuf{
     }else{
         PathBuf::from("user_storage.json")
     }
-}
+}//to store replied customer ids to check back
 fn load_json()-> JsonStorage {
     let path = storage();
     if path.exists(){
@@ -49,6 +49,18 @@ fn store() -> String {
     };
     db_path.to_str().unwrap().to_string()
 }//to store the log-in data
+fn load_t_json()-> TrainingDataStorage {
+    let path = r"C:\\GIT\\training_data.json";
+    let contents = fs::read_to_string(&path).unwrap_or_default();
+    serde_json::from_str(&contents).unwrap_or_default()
+}//loads the data for training NNOX
+fn save_t_json(data: TrainingDataStorage){
+    let path = r"C:\\GIT\\training_data.json";
+    let tmp_path = format!("{}.tmp", &path);
+    let json = serde_json::to_string_pretty(&data).expect("Failed to serialize json!");
+    fs::write(&tmp_path, json).expect("Failed to write json!");
+    fs::rename(&tmp_path, &path).expect("Failed to rename tmp file!");
+}//saves the data for training NNOX
 fn process_images(filename: &str) -> Option<Vec<u8>> {
     let download_folder = dirs::download_dir()?;
     for entry in WalkDir::new(download_folder).into_iter().flatten() {
@@ -113,10 +125,20 @@ fn ask_mmk_aed()->f64{
         }
     }
 }
+fn ask_mmk_aed_50under()->bool{
+    loop{
+        let x:String = input("50L limit on MMK_AED? : ");
+        match x.trim().parse::<bool>(){
+            Ok(v) => return v,
+            _ => {println!("{}","Invalid input, try again!".red())}
+        }
+    }
+}
 //==================================================================================================
 //main program
 pub struct Botty{
     rates:[f64;3],
+    limit50:bool,
     start_time: i64,
     aed_acc: Vec<u8>,
     aed_reg:Regex,
@@ -131,6 +153,7 @@ impl Botty{
             .as_secs() as i64;
         Botty{
             rates:[ask_aed_acc(), ask_aed_cash(), ask_mmk_aed()],
+            limit50:ask_mmk_aed_50under(),
             start_time:now,
             aed_acc:load_or_warn("aedpic.jpeg"),
             aed_reg:Regex::new(AED_REG).unwrap(),
@@ -150,22 +173,23 @@ impl Botty{
             MessageKey::Food => {
                 Some("မြန်မာအစားစာ နဲ့ပတ်သက်ပြီးသိလိုတာတွေကို TNT Food WhatsApp +971503490683 ကိုဆက်သွယ်မေးပေးပါ\nသူတို့ရဲ့ရုံးချိန် 9:00AM to 3:00AM အတွင်းမှာ ပြန်လည်ဖြေကြားပေးသွားပါလိမ့်မယ်".to_string())
             }
-            MessageKey::OneAED => {
-            Some(format!("မြန်မာပြည်ငွေလွှဲ 1 AED ကို\n{} MMK (Bank account transfer/Kpay/Wave/True Money)\n{} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)\nရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ် - *ငွေပြန်လွှဲပေးတဲ့အခါမှာ 1AED နဲ့တွက်ပြီးမလွှဲပေးပါဘူးနော်*\nမှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်\nအိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်\nငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်",
-            (100000.0 / self.rates[0]).round() as i32,(100000.0 / self.rates[1]).round() as i32))
-            },
             MessageKey::AedMmk => {
-            Some(format!("မြန်မာပြည်ငွေလွှဲ 100,000 MMK ကို\n{} AED (Bank account transfer/Kpay/Wave/True Money)\n{} AED (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)\nပေးရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ်\nမှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်\nအိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်\nငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်",
-            self.rates[0], self.rates[1]))
-            },
+            Some(format!("မြန်မာပြည်ငွေလွှဲ 100,000 MMK/ 1 AED ကို\n{} AED/ {} MMK (Bank account transfer/Kpay/Wave/True Money)\n{} AED/ {}MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)\nပေးရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ် - *ငွေပြန်လွှဲပေးတဲ့အခါမှာ 1AED နဲ့တွက်ပြီးမလွှဲပေးပါဘူးနော်*\nမှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်\nအိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်\nငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်",
+            self.rates[0],(100000.0/self.rates[0]).round() as i32, self.rates[1], (100000.0/self.rates[1]).round() as i32))
+            }
             MessageKey::MmkAed => {
-                if self.rates[2]!=0.0{
-                    Some(format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်\nAED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်",self.rates[2]))
-                }
-                else{
+                if self.rates[2] == 0.0{
                     Some("လောလောဆယ် mmk to aed ငွေလွှဲပေးရန် stock မရှိသေးပါဘူး ငွေပြန်လွှဲလို့ရတဲ့အခါပြောပေးပါမယ်နော်".to_string())
                 }
-            },
+                else{
+                    if self.limit50{
+                        Some(format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်\nAED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်\n\n**လောလောဆယ်stockအများကြီးမရှိတဲ့အတွက်မြန်မာငွေသိန်း50အောက်ပဲငွေလွှဲလက်ခံပါတယ်**",self.rates[2]))
+                    }
+                    else{
+                        Some(format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်\nAED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်",self.rates[2]))
+                    }
+                }
+            }
             MessageKey::Acc => None
         }
     }
@@ -230,12 +254,17 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
         //add senders to a file
         if sender != "Me".to_string() {
             let mut more = load_json();
-            let already_exists = more.iter().any(|Task|Task.task == sender);
+            let already_exists = more.iter().any(|lol|lol.task == sender);
             if !already_exists {
                 more.push(Task{task: sender.clone(), hour:23,min:59,done:false});
                 save_json(more);
             }
         }
+        //==========================================================================================
+        //collect data for training
+        let mut existing = load_t_json();
+        existing.push(message.clone());
+        save_t_json(existing);
         //==========================================================================================
         if ctx.info.source.is_group {println!("{}",message.blue().on_white());return;} //return if it is group message
         if ctx.info.source.is_from_me {println!("{}",message.black().on_white());return;} //return if it is owner or bot
@@ -254,7 +283,7 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
         if FOOD.iter().any(|&word| has_keyword(&message,word)) {key.push(MessageKey::Food)}
         if botty.aed_reg.is_match(&message){key.push(MessageKey::AedMmk)}
         if botty.mmk_reg.is_match(&message){key.push(MessageKey::MmkAed)}
-        if botty.one_aed_reg.is_match(&message){key.push(MessageKey::OneAED)}
+        if botty.one_aed_reg.is_match(&message){key.push(MessageKey::AedMmk)}
         if ACCOUNT.iter().any(|&word| has_keyword(&message,word)) {key.push(MessageKey::Acc)}
         if key.is_empty() {return;} //return if there are no reply available
 
@@ -272,7 +301,7 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
             }
         }
         if key_clone.contains(&MessageKey::Acc) {
-            if user_replies.contains(&MessageKey::OneAED) || user_replies.contains(&MessageKey::AedMmk) || sender == "80350717968563@lid".to_string() {
+            if user_replies.contains(&MessageKey::AedMmk) || sender == "80350717968563@lid".to_string() {
                 if sender!="80350717968563@lid".to_string(){user_replies.insert(MessageKey::Acc);}
                 let bytes = botty.aed_acc.clone();
                 match ctx.client.upload(bytes, MediaType::Image, UploadOptions::default()).await{
@@ -301,12 +330,13 @@ async fn process_message(ctx: MessageContext, cache: RepliedCache, botty:Arc<Bot
 #[derive(Serialize, Deserialize, Clone)]
 struct Task{task:String, hour:u32, min:u32, done:bool}
 type JsonStorage = Vec<Task>;
+type TrainingDataStorage = Vec<String>;
 type RepliedCache = Arc<Mutex<HashMap<String, HashSet<MessageKey>>>>;
 //==================================================================================================
 //enums needed
 #[derive(Debug,Clone,Copy,PartialEq,Eq,Hash)]
 enum MessageKey{
-    Greeting,Ticketing,Passport,Food,OneAED,AedMmk,MmkAed,Acc
+    Greeting,Ticketing,Passport,Food,AedMmk,MmkAed,Acc
 }
 //==================================================================================================
 //constants
@@ -336,7 +366,7 @@ const TICKETING: [&str; 5] = ["ticketing", "ticket", "visa", "လက်မှတ
 const PASSPORT: [&str; 3] = ["passport", "ပတ်စပို့", "သက်တမ်းတိုး"];
 const FOOD: [&str; 3] = ["food", "စားစရာ", "မုန့်"];
 const ONE_AED_REG:&str = r"(?i)(?-u:\b)1\s*(-)?\s*(aed|ကျပ်)";
-const AED_REG:&str = r"(?i)(?-u:\b)(aed|dubai|uae|ဒူဘိုင်း|rate|စျေး|ငွေ|exchange|ဒီနေ့|today)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ|rate|စျေး)";
+const AED_REG:&str = r"(?i)(?-u:\b)(aed|dubai|uae|ဒူဘိုင်း|rate|ငွေ|exchange|ဒီနေ့|today)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ|rate|စျေး|ဘယ်လောက်)";
 const MMK_REG:&str = r"(?i)(?-u:\b)(mmk|mk|kyat|myanmar|kpay|k pay|wave|မြန်မာ)\s*(to)?\s*(ကနေ)?\s*(က)?\s*(-)?\s*(aed|dubai|uae|ဒူဘိုင်း)";
 const CAPTION: &str =   "ပုံထဲမှာ ရေးထားတာလေးသေချာသတိထားပေးပါ ကျေးဇူးတင်ပါတယ်\nလွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်";
 //==================================================================================================

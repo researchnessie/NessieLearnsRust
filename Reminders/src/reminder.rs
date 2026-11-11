@@ -114,7 +114,7 @@ impl Reminder{
     }
 }
 impl eframe::App for Reminder{
-    fn ui(&mut self,ui:&mut eframe::egui::Ui,_frame:&mut eframe::Frame){
+    fn ui(&mut self,ui:&mut egui::Ui,_frame:&mut eframe::Frame){
         ui.ctx().request_repaint_after(Duration::from_secs(10));//keeps the loop active aka doesn't let egui to go to sleep
         if self.missing_file {
             egui::Window::new("Error!").show(ui, |ui|{
@@ -192,9 +192,9 @@ impl eframe::App for Reminder{
             if self.alert.is_none(){
                 let now = Local::now();
                 let now_min = now.hour()*60 + now.minute();
-                if let Some(t) = self.task.iter().find(|t| t.hour*60 + t.min <= now_min && !self.dismissed.contains(&t.task)) {
+                if let Some(t) = self.task.iter().find(|t| t.hour*60 + t.min == now_min && !self.dismissed.contains(&t.task)) {
                     self.alert = Some(t.task.clone());
-                    thread::spawn(toggle_spotify); //no idea why its in a thread, not yet
+                    thread::spawn(toggle_spotify); //no idea why its in a thread, not yet - I think it is to run it only once.
                     if let Some(p) = &self.file_path {play_audio(p.clone())}
                 }
             }
