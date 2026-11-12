@@ -231,7 +231,6 @@ pub fn fast_reply(){
     col_rates.set_pad(6);
     let mut aed_mmk = Button::new(0, 0, 0, 0, "AED_MMK");
     let mut mmk_aed = Button::new(0, 0, 0, 0, "MMK_AED");
-    let mut one_aed = Button::new(0, 0, 0, 0, "1AED");
     col_rates.end();
 
     let mut col_accounts = Flex::new(0, 0, 0, 0, "");
@@ -268,7 +267,7 @@ pub fn fast_reply(){
 
     button_grid.end();
     for b in [
-        &mut type_rates, &mut aed_mmk, &mut mmk_aed, &mut one_aed,
+        &mut type_rates, &mut aed_mmk, &mut mmk_aed,
         &mut current_aed_acc, &mut current_oman_acc, &mut dubai_kpay_acc,
         &mut ygn_kpay_acc, &mut ygn_wave_acc, &mut ygn_bank_acc,
         &mut transfer_process, &mut delay_48hr, &mut ask_acc, &mut large_amt,
@@ -461,9 +460,9 @@ pub fn fast_reply(){
     aed_mmk.set_callback(move |_| {
         let i = rates_for_aed_mmk.borrow();
         wait(3.0);
-        keyboard::typewrite("မြန်မာပြည်ငွေလွှဲ 100,000 MMK ကို");next_line();
-        keyboard::typewrite(&format!("{} AED (Bank account transfer/Kpay/Wave/True Money)", i[0]));next_line();
-        keyboard::typewrite(&format!("{} AED (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်", i[1]));next_line();
+        keyboard::typewrite("မြန်မာပြည်ငွေလွှဲ 100,000 MMK/ 1 AED ကို");next_line();
+        keyboard::typewrite(&format!("{} AED/ {} MMK (Bank account transfer/Kpay/Wave/True Money)", i[0],(100000.0/i[0]).round() as i32));next_line();
+        keyboard::typewrite(&format!("{} AED/ {} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်", i[1], (100000.0/i[1]).round() as i32));next_line();
         keyboard::typewrite("ပေးရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ်");next_line();
         keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
         keyboard::typewrite("အိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်");next_line();
@@ -476,18 +475,6 @@ pub fn fast_reply(){
         wait(3.0);
         keyboard::typewrite(&format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်",i));next_line();
         keyboard::typewrite(r"AED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်");
-        keyboard::key_tap(Vk::Enter);
-    });
-    let rates_for_one_aed = Rc::clone(&final_rates);
-    one_aed.set_callback(move |_| {
-        let i = rates_for_one_aed.borrow();
-        wait(3.0);
-        keyboard::typewrite("မြန်မာပြည်ငွေလွှဲ 1 AED ကို");next_line();
-        keyboard::typewrite(&format!("{} MMK (Bank account transfer/Kpay/Wave/True Money)", (100000.0/i[0]).round() as i32));next_line();
-        keyboard::typewrite(&format!("{} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်", (100000.0/i[1]).round() as i32));next_line();
-        keyboard::typewrite("ငွေစျေးပြောင်းနိုင်ပါတယ်- *ငွေပြန်လွှဲပေးတဲ့အခါမှာ 1AED နဲ့တွက်ပြီးမလွှဲပေးပါဘူးနော်*");next_line();
-        keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
-        keyboard::typewrite("ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်");
         keyboard::key_tap(Vk::Enter);
     });
     //==============================================================================================

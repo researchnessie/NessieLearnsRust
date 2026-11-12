@@ -1,0 +1,17 @@
+[package]
+name = "botreply_remastered"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+directories = "6.0.0"
+serde = "1.0.229"
+whatsapp-rust = "0.7.0"
+walkdir = "2.5.0"
+regex = "1.13.1"
+colored = "3.1.1"
+console-utils = "1.8.3"
+tokio = "1.54.1"
+qrcode = "0.14.1"
+[build-dependencies]
+winres = "0.1.12"
