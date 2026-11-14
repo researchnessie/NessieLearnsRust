@@ -65,8 +65,10 @@ fn load_json(path:PathBuf)-> JsonStorage {
 }
 fn save_json(data: JsonStorage){
     let path = storage();
+    let temp_path = path.with_extension("json.tmp");
     let json = serde_json::to_string_pretty(&data).expect("Failed to serialize json!");
-    fs::write(&path, json).expect("Failed to write json!");
+    fs::write(&temp_path, json).expect("Failed to write json!");
+    fs::rename(temp_path, path).expect("Failed to move json!");
 }
 //==================================================================================================
 //loops
@@ -161,10 +163,7 @@ impl eframe::App for Reminder{
                             if ui.checkbox(&mut task.done, "").changed(){
                                 changed = true;
                             }
-                            if ui.add(egui::Label::new(format!("{}:{} - {}", task.hour, task.min, task.task)).wrap()).clicked(){
-                                task.done = !task.done;
-                                changed = true;
-                            }
+                            ui.add(egui::Label::new(format!("{}:{} - {}", task.hour, task.min, task.task)).wrap())
                         });
                     }
                 });

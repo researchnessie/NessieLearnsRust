@@ -1,4 +1,5 @@
 //Import modules
+use crate::static_text_storage;
 use dirs;
 use image;
 use walkdir::WalkDir;
@@ -7,6 +8,7 @@ use rsautogui::{keyboard, keyboard::Vk};
 use num_format::{Locale, ToFormattedString};
 use std::{thread, time::Duration, rc::Rc, cell::RefCell, process::exit};
 use fltk::{app, button::Button, frame::Frame, prelude::*, window::Window, input::Input, enums::{FrameType,Align,Color}, group::{Flex, FlexType}, image::PngImage};
+use fltk::enums::Shortcut;
 //==================================================================================================
 //global functions
 fn process_images(filename:&str)->Option<ImageData<'static>>{
@@ -55,11 +57,6 @@ fn load_or_warn(filename: &str) -> ImageData<'static> {
     }
 }//convenience wrapper used at startup
 fn wait(seconds:f64){thread::sleep(Duration::from_secs(seconds as u64));}//simplifying wait for multiple uses
-fn next_line(){
-    keyboard::key_down(Vk::Shift);
-    keyboard::key_tap(Vk::Enter);
-    keyboard::key_up(Vk::Shift);
-}//performs Shift Enter for WhatsApp and Messenger
 fn do_paste_action(){
     keyboard::key_down(Vk::Control);
     keyboard::key_tap(Vk::V);
@@ -83,6 +80,13 @@ fn get_rates(a:&str,b:&str,c:&str)-> Vec<f64>{
     }
     ready_rates
 }//solves user input error on typing rates
+fn paste_text(text:&str){
+    if let Ok(mut clipboard) = Clipboard::new(){
+        let _ = clipboard.set_text(text.to_string());
+        wait(1.0);
+        do_paste_action();
+    }
+}
 //==================================================================================================
 //Visual changing functions
 fn style_window(w: &mut Window) {
@@ -151,6 +155,7 @@ pub fn fast_reply(){
     style_input(&mut aed1); style_input(&mut aed2); style_input(&mut mmk);
     let mut confirm_rates = Button::new(0, 0, 0, 0, "Confirm");
     style_button(&mut confirm_rates);
+    confirm_rates.set_shortcut(Shortcut::from_key(fltk::enums::Key::Enter));
     popup_root.fixed(&confirm_rates, 30);
     popup_root.end();
     rate_popup.resizable(&popup_root);
@@ -169,7 +174,7 @@ pub fn fast_reply(){
     root.set_margin(12);
     root.set_pad(8);
 
-    //------------------------------------------------------------------------------------------
+    //==============================================================================================
     // Header: title, warning, current-rates row
     let mut header = Flex::new(0, 0, 0, 0, "");
     header.set_type(FlexType::Column);
@@ -339,81 +344,67 @@ pub fn fast_reply(){
         Clipboard::new().unwrap().set_image(aed_acc.clone()).unwrap();
         wait(3.0);
         do_paste_action();
-        keyboard::typewrite("ပုံထဲမှာ ရေးထားတာလေးသေချာသတိထားပေးပါ ကျေးဇူးတင်ပါတယ်");
-        next_line();
-        keyboard::typewrite("လွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်");
+        paste_text(&static_text_storage::AED_ACC_WARNING);
         keyboard::key_tap(Vk::Enter);
     });
     current_oman_acc.set_callback(move |_| {
         Clipboard::new().unwrap().set_image(oman_acc.clone()).unwrap();
         wait(3.0);
         do_paste_action();
-        keyboard::typewrite("ဒီအကောင့်ကိုလွှဲလို့ရပါတယ် ငွေလွှဲအကြောင်းအရာမှာ Family Support လို့လုံးဝမရေးပါနဲ့ ကျေးဇူးတင်ပါတယ်");
+        paste_text(&static_text_storage::OMAN_ACC_WARNING);
         keyboard::key_tap(Vk::Enter);
     });
     dubai_kpay_acc.set_callback(move |_| {
         Clipboard::new().unwrap().set_image(kpay_acc.clone()).unwrap();
         wait(3.0);
         do_paste_action();
-        keyboard::typewrite("ဒီKpayအကောင့်တွေထဲက အဆင်ပြေတာကိုလွှဲလို့ရပါတယ်");
+        paste_text(&static_text_storage::DUBAI_KPAY_ACC_WARNING);
         keyboard::key_tap(Vk::Enter);
     });
     ygn_kpay_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("U Tin Htwe - 09765127873");next_line();
-        keyboard::typewrite("May Thazin Htwe - 09692944880");next_line();
-        keyboard::typewrite("Kpay");keyboard::key_tap(Vk::Enter);
-        keyboard::typewrite("အခုပို့ပေးထားတဲ့အကောင့်တွေက ရန်ကုန်ရုံးက အကောင့်တွေပါ အဲ့တာကြောင့် ရုံးကိုမေးပြီးတော့ ငွေဝင်မဝင် တစ်ဆင့်ငွေစစ်ရပါတယ် ငွေဝင်ထားကြောင်း confirm တဲ့အခါ ကျတော်တို့ဘက်ကပြန်ပြောပေးပါမယ် အဲ့အခါကျမှလာထုတ်ပေးပါ မဟုတ်ရင် ငွေလာထုတ်တဲ့အခါ ရုံးမှာ အကြာကြီးစောင့်နေရမှာမလို့ပါ");
+        paste_text(&static_text_storage::YGN_KPAY_ACC_WARNING);
         keyboard::key_tap(Vk::Enter);
     });
     ygn_wave_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("U Tin Htwe - 09765127873 Wave account");next_line();
-        keyboard::key_tap(Vk::Enter);
-        keyboard::typewrite("အခုပို့ပေးထားတဲ့အကောင့်က ရန်ကုန်ရုံးက အကောင့်ပါ အဲ့တာကြောင့် ရုံးကိုမေးပြီးတော့ ငွေဝင်မဝင် တစ်ဆင့်ငွေစစ်ရပါတယ် ငွေဝင်ထားကြောင်း confirm တဲ့အခါ ကျတော်တို့ဘက်ကပြန်ပြောပေးပါမယ် အဲ့အခါကျမှလာထုတ်ပေးပါ မဟုတ်ရင် ငွေလာထုတ်တဲ့အခါ ရုံးမှာ အကြာကြီးစောင့်နေရမှာမလို့ပါ");
+        paste_text(&static_text_storage::YGN_WAVE_ACC_WARNING);
         keyboard::key_tap(Vk::Enter)
     });
     ygn_bank_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Name - U Tin Htwe");next_line();
-        keyboard::typewrite("==============================");next_line();
-        keyboard::typewrite("CB - 0208600900000744");next_line();
-        keyboard::typewrite("Yoma - 002545444000457");next_line();
-        keyboard::typewrite("AYA - 40028509455");next_line();
-        keyboard::typewrite("KBZ Special Acc- 00251120400180501");
-        keyboard::key_tap(Vk::Enter);
-        keyboard::typewrite("အခုပို့ပေးထားတဲ့အကောင့်တွေက ရန်ကုန်ရုံးက အကောင့်တွေပါ အဲ့တာကြောင့် ရုံးကိုမေးပြီးတော့ ငွေဝင်မဝင် တစ်ဆင့်ငွေစစ်ရပါတယ် ငွေဝင်ထားကြောင်း confirm တဲ့အခါ ကျတော်တို့ဘက်ကပြန်ပြောပေးပါမယ် အဲ့အခါကျမှလာထုတ်ပေးပါ မဟုတ်ရင် ငွေလာထုတ်တဲ့အခါ ရုံးမှာ အကြာကြီးစောင့်နေရမှာမလို့ပါ");
+        paste_text(&static_text_storage::YGN_BANK_ACC_WARNING);
         keyboard::key_tap(Vk::Enter);
     });
 
     transfer_process.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("လွှဲထားတဲ့စလစ်လေးကို နေ့တိုင်းမနက် 6:00AM မှာငွေစစ်ပြီးတော့ ငွေဝင်ထားတဲ့နေ့မှာမြန်မာပြည်ကနေပြန်လွှဲပေးပါတယ်");
+        paste_text(&static_text_storage::TRANSFER_PROCESS);
         keyboard::key_tap(Vk::Enter);
     });
     delay_48hr.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("AED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်");
+        paste_text(&static_text_storage::FOUR_EIGHT_HR_DELAY);
         keyboard::key_tap(Vk::Enter);
     });
     ask_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("ငွေမလွှဲခင် အကောင့်ပြန်မေးပေးပါ ပိတ်နေပျက်နေတဲ့အကောင့်တွေကိုမှားလွှဲမိလို့ငွေဆုံးရုံးပါက TNT မှာတာဝန်ယူဖြေရှင်းပေးမည်မဟုတ်ပါ");
+        paste_text(&static_text_storage::ASK_ACC_BEFORE_TRANSFER);
         keyboard::key_tap(Vk::Enter);
     });
     large_amt.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("လွှဲမယ့်အမောင့်လေးရယ် AED ပေးမယ့်ပုံစံရယ် MMK ပြန်ယူမယ့်ပုံစံရယ်ပြောပေးပါနော် boss ကိုစျေးမေးပေးပါမယ်");
+        paste_text(&static_text_storage::LARGE_AMOUNT_TRANSFER);
         keyboard::key_tap(Vk::Enter);
     });
     kpay_limit_customer.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("kpay က တစ်နေ့ကို 5,000,000 MMK ပဲလွှဲပေးလို့ရပါတယ် ကျန်တာ နောက်နေ့မှထပ်ထည့်ပေးလို့ရပါမယ် ဒီနေ့လိုချင်တယ်ဆို နောက်ထပ်အကောင့်တစ်ခုထပ်ပေးမှရပါမယ်");
+        paste_text(&static_text_storage::CUSTOMER_KPAY_LIMIT);
         keyboard::key_tap(Vk::Enter);
     });
     kpay_limit_our_acc.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Kpay limit ပြည့်နေလို့ပါ limit ပြန်ရတဲ့ အချိန် Dubai time 9:30pm, Myanmar time 12:00am ကျမှထပ်လွှဲလို့ရပါမယ်");
+        paste_text(&static_text_storage::OUR_KPAY_LIMIT);
         keyboard::key_tap(Vk::Enter);
     });
     dubai_location.set_callback(move |_| {
@@ -422,36 +413,28 @@ pub fn fast_reply(){
         do_paste_action();
         Clipboard::new().unwrap().set_image(location_2.clone()).unwrap();
         do_paste_action();
-        keyboard::typewrite("https://maps.app.goo.gl/Ji8WJeeJMVAGMZCs8");
+        paste_text(&static_text_storage::DUBAI_LOCATION_LINK);
         keyboard::key_tap(Vk::Enter);
     });
 
     ticket.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Visa and Ticket နဲ့ပတ်သက်ပြီးသိလိုတာတွေကို Visa and Ticketing WhatsApp +971501238266 ကိုဆက်သွယ်မေးပေးပါ");
-        next_line();
-        keyboard::typewrite("သူတို့ရဲ့ရုံးချိန် 9:00AM to 12:00AM(Midnight) အတွင်းမှာ ပြန်လည်ဖြေကြားပေးသွားပါလိမ့်မယ်");
+        paste_text(&static_text_storage::TICKETING);
         keyboard::key_tap(Vk::Enter);
     });
     passport.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("Passport နဲ့ပတ်သက်ပြီးသိလိုတာတွေကို Office Reception WhatsApp +971501775318 ကိုဆက်သွယ်မေးပေးပါ");
-        next_line();
-        keyboard::typewrite("သူတို့ရဲ့ရုံးချိန် 9:00AM to 3:00AM အတွင်းမှာ ပြန်လည်ဖြေကြားပေးသွားပါလိမ့်မယ်");
+        paste_text(&static_text_storage::PASSPORT);
         keyboard::key_tap(Vk::Enter);
     });
     office.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("TNT Office မှာငွေလွှဲထားတယ်ဆိုရင် Office Reception WhatsApp +971501775318 ကိုဆက်သွယ်မေးပေးပါ");
-        next_line();
-        keyboard::typewrite("သူတို့ရဲ့ရုံးချိန် 9:00AM to 3:00AM အတွင်းမှာ ပြန်လည်ဖြေကြားပေးသွားပါလိမ့်မယ်");
+        paste_text(&static_text_storage::OFFICE);
         keyboard::key_tap(Vk::Enter);
     });
     food.set_callback(move |_| {
         wait(3.0);
-        keyboard::typewrite("မြန်မာအစားစာ နဲ့ပတ်သက်ပြီးသိလိုတာတွေကို TNT Food WhatsApp +971503490683 ကိုဆက်သွယ်မေးပေးပါ");
-        next_line();
-        keyboard::typewrite("သူတို့ရဲ့ရုံးချိန် 9:00AM to 3:00AM အတွင်းမှာ ပြန်လည်ဖြေကြားပေးသွားပါလိမ့်မယ်");
+        paste_text(&static_text_storage::FOOD);
         keyboard::key_tap(Vk::Enter);
     });
     //==============================================================================================
@@ -460,21 +443,14 @@ pub fn fast_reply(){
     aed_mmk.set_callback(move |_| {
         let i = rates_for_aed_mmk.borrow();
         wait(3.0);
-        keyboard::typewrite("မြန်မာပြည်ငွေလွှဲ 100,000 MMK/ 1 AED ကို");next_line();
-        keyboard::typewrite(&format!("{} AED/ {} MMK (Bank account transfer/Kpay/Wave/True Money)", i[0],(100000.0/i[0]).round() as i32));next_line();
-        keyboard::typewrite(&format!("{} AED/ {} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်", i[1], (100000.0/i[1]).round() as i32));next_line();
-        keyboard::typewrite("ပေးရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ်");next_line();
-        keyboard::typewrite("မှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်");next_line();
-        keyboard::typewrite("အိမ်ပို့ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်");next_line();
-        keyboard::typewrite("ငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်");
+        paste_text(&format!("မြန်မာပြည်ငွေလွှဲ 100,000 MMK/ 1 AED ကို\n{} AED/ {} MMK (Bank account transfer/Kpay/Wave/True Money)\n{} AED/ {} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)\nပေးရပါမယ် − ငွေစျေးပြောင်းနိုင်ပါတယ်\nမှတ်ပုံတင်ဖြင့်လွှဲသည်ဖြစ်စေ နယ်အကောင့်များသို့ထည့်သည်ဖြစ်စေ ကျသင့်မည့် ဘဏ် charges များကို customer ဘက်မှသာကျခံပေးရပါမည်\nအိမ်ပို့/home delivery ငွေများအားလုံး 4-5 ရက်အထိကြာနိုင်ပါတယ်\nငွေမလွှဲခင်တိုင်းအကောင့်ပြန် confirmပြီးမှလွှဲပေးပါနော်",i[0],(100000.0/i[0]).round() as i32,i[1], (100000.0/i[1]).round() as i32));
         keyboard::key_tap(Vk::Enter);
     });
     let rates_for_mmk_aed = Rc::clone(&final_rates);
     mmk_aed.set_callback(move |_| {
         let i = rates_for_mmk_aed.borrow()[2];
         wait(3.0);
-        keyboard::typewrite(&format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်",i));next_line();
-        keyboard::typewrite(r"AED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်");
+        paste_text(&format!("မြန်မာပြည်ကနေငွေလွဲမယ်ဆိုရင် တစ်သိန်းကို {} AED ရပါမယ် စျေးပြောင်းနိုင်ပါတယ်\nAED ချက်ချင်းပြန်လိုတယ်ဆိုရုံးကို လာထုတ်ပေးမှရပါမယ် အကောင့်ထဲကို လွှဲပေးရမယ်ဆို up to 48 hr အထိကြာနိုင်ပါတယ်",i));
         keyboard::key_tap(Vk::Enter);
     });
     //==============================================================================================
@@ -488,10 +464,8 @@ pub fn fast_reply(){
                 let r1 = ((aed_amount / (rate[0] / 100.0)) as i32) * 1000;
                 let r2 = ((aed_amount / (rate[1] / 100.0)) as i32) * 1000;
                 wait(3.0);
-                keyboard::typewrite(&format!("{:.2} AED ကို", aed_amount));next_line();
-                keyboard::typewrite(&format!("{} MMK (Bank account transfer/Kpay/Wave/True Money)", r1.to_formatted_string(&Locale::en)));next_line();
-                keyboard::typewrite(&format!("{} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)", r2.to_formatted_string(&Locale::en)));next_line();
-                keyboard::typewrite("ရပါမယ်");keyboard::key_tap(Vk::Enter);
+                paste_text(&format!("{:.2} AED ကို\n{} MMK (Bank account transfer/Kpay/Wave/True Money)\n{} MMK (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)\nရပါမယ်", aed_amount, r1.to_formatted_string(&Locale::en),r2.to_formatted_string(&Locale::en)));
+                keyboard::key_tap(Vk::Enter);
             }
             Err(_)=>{}
         }
@@ -504,10 +478,8 @@ pub fn fast_reply(){
             Ok(mmk_amount)=> {
                 let m1 = (mmk_amount * 100000.0) as i32;
                 wait(3.0);
-                keyboard::typewrite(&format!("{} MMK ကို", m1.to_formatted_string(&Locale::en)));next_line();
-                keyboard::typewrite(&format!("{:.2} AED (Bank account transfer/Kpay/Wave/True Money)", mmk_amount*rate[0]));next_line();
-                keyboard::typewrite(&format!("{:.2} AED (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)", mmk_amount*rate[1]));next_line();
-                keyboard::typewrite("ပေးရပါမယ်");keyboard::key_tap(Vk::Enter);
+                paste_text(&format!("{} MMK ကို\n{:.2} AED (Bank account transfer/Kpay/Wave/True Money)\n{:.2} AED (Cash out at Ygn Office/Cash Home Delivery/ ဘဏ်ထုတ်)\nပေးရပါမယ်",m1.to_formatted_string(&Locale::en),mmk_amount*rate[0],mmk_amount*rate[1]));
+                keyboard::key_tap(Vk::Enter);
             }
             Err(_)=>{}
         }
@@ -520,7 +492,8 @@ pub fn fast_reply(){
             Ok(aed_amount)=> {
                 let r1 = ((aed_amount / (rate/100.0)) as i32) *1000;
                 wait(3.0);
-                keyboard::typewrite(&format!("{} AED ကို {} MMK ပေးရပါမယ်",aed_amount, r1.to_formatted_string(&Locale::en)));keyboard::key_tap(Vk::Enter);
+                paste_text(&format!("{} AED ကို {} MMK ပေးရပါမယ်",aed_amount, r1.to_formatted_string(&Locale::en)));
+                keyboard::key_tap(Vk::Enter);
             }
             Err(_)=>{}
         }
@@ -533,7 +506,8 @@ pub fn fast_reply(){
             Ok(mmk_amount)=> {
                 let m1 = (mmk_amount * 100000.0) as i32;
                 wait(3.0);
-                keyboard::typewrite(&format!("{} MMK ကို {} AED ရပါမယ်", m1.to_formatted_string(&Locale::en) , mmk_amount*rate));keyboard::key_tap(Vk::Enter);
+                paste_text(&format!("{} MMK ကို {} AED ရပါမယ်", m1.to_formatted_string(&Locale::en) , mmk_amount*rate));
+                keyboard::key_tap(Vk::Enter);
             },
             Err(_)=>{}
         }
