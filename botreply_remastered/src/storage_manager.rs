@@ -1,8 +1,9 @@
 use walkdir::WalkDir;
-use whatsapp_rust::serde_json;
+use whatsapp_rust::{chrono, serde_json};
 use serde::{Serialize, Deserialize};
 use directories::{ProjectDirs, UserDirs};
 use std::{fs,path::PathBuf,process::exit};
+use chrono::{Local,DateTime};
 //==================================================================================================
 /*
 These struct,types and function below act as a way to store all the customer's interacted throughout the day to be updated in Reminders App and followed up
@@ -13,7 +14,7 @@ read and write function does exactly what they say
 #[derive(Serialize, Deserialize, Clone)]
 //this struct is created according to the needs of the reminder app's structure
 //for more info of the workings of reminder app, read the code of the reminder app
-pub struct Task{pub task:String, pub hour:u32, pub min:u32, pub done:bool}
+pub struct Task{pub task:String, pub due_time:DateTime<Local>, pub done:bool}
 type JsonStorage = Vec<Task>;
 //This function looks for user_storage.json inside current user's data folder
 fn user_id_collector()->PathBuf{

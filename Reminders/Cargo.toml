@@ -15,6 +15,6 @@ powershell_script = "1.1.0"
 walkdir = "2.5.0"
 rodio = "0.23.0"
 dirs = "7.0.0"
-
+arboard = "3.7.0"
 [build-dependencies]
 winres = "0.1.12"

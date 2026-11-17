@@ -3,7 +3,8 @@ use colored::*;
 use qrcode::QrCode;
 use tokio::sync::Mutex;
 use std::{collections::{HashMap, HashSet},time::Duration,sync::Arc};
-use whatsapp_rust::{prelude::*,download::MediaType, UploadOptions, media, media::ImageOptions};
+use chrono::Local;
+use whatsapp_rust::{prelude::*, download::MediaType, UploadOptions, media, media::ImageOptions};
 //==================================================================================================
 type RepliedCache = Arc<Mutex<HashMap<String, HashSet<bot_brain::MessageKey>>>>;
 //==================================================================================================
@@ -64,7 +65,7 @@ async fn process_message(ctx:MessageContext, cache: RepliedCache, reply_bot:Arc<
             let mut users_to_be_appended = storage_manager::read_userid();
             let already_exists = users_to_be_appended.iter().any(|u|u.task == sender);
             if !already_exists {
-                users_to_be_appended.push(storage_manager::Task{task: sender.clone(), hour:23,min:59,done:false});
+                users_to_be_appended.push(storage_manager::Task{task: sender.clone(), due_time:Local::now(),done:false});
                 storage_manager::write_userid(users_to_be_appended);
             }
         }
