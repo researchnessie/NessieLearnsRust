@@ -48,3 +48,18 @@ fn find_windows(){
         EnumWindows(Some(find), 0);
     }
 }//finds the active windows
+fn send_play_pause_to_spotify(){
+    use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput,INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MEDIA_PLAY_PAUSE};
+    let key = |flags: KEYBD_EVENT_FLAGS| INPUT{
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki:KEYBDINPUT{
+                wVk: VK_MEDIA_PLAY_PAUSE,wScan:0,dwFlags:flags,time:0,dwExtraInfo:0
+            }
+        }
+    };
+    let input = [key(KEYBD_EVENT_FLAGS(0)),key(KEYEVENTF_KEYUP)];
+    unsafe {
+        SendInput(&input, size_of::<INPUT>() as i32 );
+    }
+}
